@@ -1,6 +1,6 @@
 from .settings import *
 
-DEBUG = False # Will be moved to external variables in Phase 2
+DEBUG = True # Will be moved to external variables in Phase 2
 # Configure default domain name
 ALLOWED_HOSTS = [os.environ['WEBSITE_SITE_NAME'] + '.azurewebsites.net',
 'localhost'] if 'WEBSITE_SITE_NAME' in os.environ else []
