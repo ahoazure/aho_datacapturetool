@@ -1,25 +1,28 @@
-from rest_framework.serializers import (
-    ModelSerializer, ReadOnlyField)
-from publications.models import (StgResourceType,StgKnowledgeProduct,
-    StgProductDomain)
+from parler_rest.serializers import TranslatableModelSerializer
+from parler_rest.fields import TranslatedFieldsField
+# from rest_framework.serializers import (
+#     ModelSerializer, ReadOnlyField)
+from .models import (StgHealthFacility,StgFacilityType,
+    StgFacilityOwnership)
 
-class StgResourceTypeSerializer(ModelSerializer):
+class StgHealthFacilitySerializer(TranslatableModelSerializer):
+    translations = TranslatedFieldsField(shared_model=StgHealthFacility)
     class Meta:
-        model = StgResourceType
-        fields = ['type_id','name', 'code','description']
+        model = StgHealthFacility
+        fields = ('owner','name',)
+        data_wizard = {
+        'header_row': 0,
+        'start_row': 1,
+        'show_in_list': True,
+    }
 
-
-class StgKnowledgeProductSerializer(ModelSerializer):
-    location_name = ReadOnlyField(source='location.name')
-    class Meta:
-        model = StgKnowledgeProduct
-        fields = ['product_id','title','code','type','categorization',
-        'location_name','description', 'abstract','author','year_published',
-        'internal_url','external_url','cover_image','comment']
-
-
-class StgKnowledgeDomainSerializer(ModelSerializer):
-    class Meta:
-        model = StgProductDomain
-        fields = ['domain_id', 'name', 'shortname', 'code', 'description','parent',
-            'publications']
+# class StgResourceTypeSerializer(ModelSerializer):
+#     class Meta:
+#         model = StgResourceType
+#         fields = ['type_id','name', 'code','description']
+#
+# class StgKnowledgeDomainSerializer(ModelSerializer):
+#     class Meta:
+#         model = StgProductDomain
+#         fields = ['domain_id', 'name', 'shortname', 'code', 'description','parent',
+#             'publications']

@@ -58,13 +58,13 @@ class FacilityInfrastructure (TranslatableAdmin):
 
 
 @admin.register(StgFacilityOwnership)
-class FacilityOwdership (TranslatableAdmin):
+class FacilityOwnership (TranslatableAdmin):
     from django.db import models
     formfield_overrides = {
         models.CharField: {'widget': TextInput(attrs={'size':'100'})},
         models.TextField: {'widget': Textarea(attrs={'rows':3, 'cols':100})},
     }
-    list_display=['name','code','location','shortname','description',]
+    list_display=['name','code','shortname','description',]
     list_display_links =('code', 'name',)
     search_fields = ('code','translations__name','translations__shortname',) #display search field
     list_per_page = 30 #limit records displayed on admin site to 15
@@ -100,7 +100,7 @@ class ServiceDomainAdmin(TranslatableAdmin,OverideExport):
         ('facilities',RelatedOnlyDropdownFilter,),# Added 16/12/2019 for M2M lookup
     )
 
-
+data_wizard.register(StgHealthFacility)
 @admin.register(StgHealthFacility)
 class FacilityAdmin(TranslatableAdmin,ImportExportModelAdmin,OverideImport,
         ImportExportActionModelAdmin):
@@ -128,7 +128,7 @@ class FacilityAdmin(TranslatableAdmin,ImportExportModelAdmin,OverideImport,
                 kwargs["queryset"] = StgLocation.objects.filter(
                 locationlevel__locationlevel_id__gte=1,
                 locationlevel__locationlevel_id__lte=2).order_by(
-                    'locationlevel', 'location_id')
+                    'locationlevel','location_id')
             else:
                 kwargs["queryset"] = StgLocation.objects.filter(
                 location_id=request.user.location_id) #permissions to user country only
@@ -159,22 +159,19 @@ class FacilityAdmin(TranslatableAdmin,ImportExportModelAdmin,OverideImport,
     #resource_class = StgFacilityResourceExport
     fieldsets = (
         ('Facility Attributes', {
-                'fields':('name','shortname','type','description','owner') #afrocode may be null
+                'fields':('name','shortname','type','description','owner',
+                'location','admin_location','status') #afrocode may be null
             }),
-            ('Infrastructure and Location', {
-                'fields': ('location', 'infrastructure','year_established'),
-            }),
-            ('Contact & Access Details', {
-                'fields': ('latitude','longitude','address','email','phone_number','url',),
+            ('Geolocation and Contact Details', {
+                'fields': ('latitude','longitude','altitude','geosource',
+                'address','email','phone_number','url',),
             }),
         )
-    filter_horizontal = ['infrastructure'] # this should display an inline with multisele
     # To display the choice field values use the helper method get_foo_display where foo is the field name
-    list_display=['name','code','year_established','owner','type','url','address',
-        'email','phone_number']
+    list_display=['name','shortname','code','type','owner','location',
+        'admin_location','latitude','longitude','altitude','geosource','status']
     list_display_links = ['code','name',]
-    search_fields = ('translations__name','type__translations__name',
-    'location__translations__name',) #display search field
+    search_fields = ('name','type__name','location__name',) #display search field
     list_per_page = 30 #limit records displayed on admin site to 30
     exclude = ('date_created','date_lastupdated','code',)
     list_filter = (
