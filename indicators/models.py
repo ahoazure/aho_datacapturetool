@@ -216,6 +216,7 @@ class FactDataIndicator(models.Model):
             ("reject_factdataindicator","Can reject Indicator Data"),
             ("pend_factdataindicator","Can pend Indicator Data")
         )
+
         managed = True
         unique_together = ('indicator', 'location', 'categoryoption','datasource',
             'start_period','end_period') #enforces concatenated unique constraint

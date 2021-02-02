@@ -1,4 +1,5 @@
 from django.contrib import admin
+import data_wizard # Solution to data import madness that had refused to go
 from django.forms import TextInput,Textarea #
 from django.utils.html import format_html
 from import_export.formats import base_formats
@@ -264,7 +265,7 @@ class HealthCadreAdmin(TranslatableAdmin,OverideExport):
     )
 
 
-
+data_wizard.register(StgHealthWorkforceFacts)
 @admin.register(StgHealthWorkforceFacts)
 class HealthworforceFactsAdmin(ImportExportModelAdmin,ImportExportActionModelAdmin):
     from django.db import models

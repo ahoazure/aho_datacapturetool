@@ -264,8 +264,8 @@ class StgHealthWorkforceFacts(models.Model):
     class Meta:
         managed = True
         db_table = 'fact_health_workforce'
-        verbose_name = _('Healthworkforce Data')
-        verbose_name_plural = _('    Healthworkforce Data')
+        verbose_name = _('Health Workforce')
+        verbose_name_plural = _('    Health Workforce')
         ordering = ('cadre_id', )
 
     def __str__(self):
