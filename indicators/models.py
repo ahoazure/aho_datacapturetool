@@ -52,7 +52,8 @@ class StgIndicatorReference(TranslatableModel):
     def clean(self): # Don't allow end_period to be greater than the start_period.
         if StgIndicatorReference.objects.filter(
             translations__name=self.name).count() and not self.reference_id:
-            raise ValidationError({'name':_('Sorry! This indicator reference exists')})
+            raise ValidationError(
+            {'name':_('Sorry! This indicator reference exists')})
 
     def save(self, *args, **kwargs):
         super(StgIndicatorReference, self).save(*args, **kwargs)

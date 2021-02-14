@@ -2,7 +2,8 @@ from django.contrib import admin
 from django import forms
 from django.conf import settings # allow import of projects settings at the root
 from django.forms import BaseInlineFormSet
-from parler.admin import TranslatableAdmin,TranslatableStackedInline,TranslatableInlineModelAdmin
+from parler.admin import (TranslatableAdmin,TranslatableStackedInline,
+    TranslatableInlineModelAdmin)
 import data_wizard # Solution to data import madness that had refused to go
 from itertools import groupby #additional import for managing grouped dropdowm
 from indicators.serializers import FactDataIndicatorSerializer

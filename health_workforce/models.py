@@ -182,7 +182,6 @@ class StgHealthCadre(TranslatableModel):
         ('phd',_('Doctorate')),
         ('certificate',_('Certificate')),
         ('basic',_('Basic Education')),
-
     )
     cadre_id = models.AutoField(primary_key=True)
     uuid = uuid = models.CharField(_('Unique ID'),unique=True,max_length=36,
