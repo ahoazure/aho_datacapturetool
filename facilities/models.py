@@ -219,7 +219,7 @@ class StgHealthFacility(TranslatableModel):
     email = models.EmailField(_('Email'),unique=True,max_length=250,
         blank=True,null=True)  # Field name made lowercase.
     phone_code = models.CharField(choices=make_choices(COUNTRY_CODES),
-        default=COUNTRY_CODES[0],max_length=50,verbose_name='Country Code',)
+        default=COUNTRY_CODES[0],max_length=5,verbose_name='Country Code',)
     phone_part = models.CharField(_('Phone Number'),validators=[number_regex],
         max_length=15, blank=True) # validators should be a list
     phone_number = models.CharField(_('Telephone'),validators=[phone_regex],

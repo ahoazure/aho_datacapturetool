@@ -84,13 +84,37 @@ class FacilityOwnership (TranslatableAdmin):
 
 
 class FacilityServiceAvilabilityInline(admin.TabularInline):
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+
+        # import pdb; pdb.set_trace()
+        # print (qs)
+        # Get a query of groups the user belongs and flatten it to list object
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        user_location = request.user.location.location_id
+        db_locations = StgLocation.objects.all().order_by('location_id')
+
+    def formfield_for_foreignkey(self, db_field, request =None, **kwargs):
+        db_sevicedomains = StgServiceDomain.objects.all().order_by('domain_id')
+        db_sevicesubdomains=db_sevicedomains.exclude(parent_id__isnull=True)
+
+        if request.user.is_superuser:
+            if db_field.name == "domain":
+                kwargs["queryset"]=db_sevicesubdomains.distinct()
+
+        # if db_field.name == "user":
+        #         kwargs["queryset"] = CustomUser.objects.filter(
+        #             email=request.user)
+        return super().formfield_for_foreignkey(db_field, request,**kwargs)
+
     # form = IndicatorProxyForm #overrides the default django form
     model = FacilityServiceAvilability
     # formset = LimitModelFormset
     extra = 2 # Used to control  number of empty rows displayed.
-
     fields = ('domain','facility','intervention','service','provided','specialunit',
         'staff','infrastructure','supplies','start_period','end_period',)
+
 
 
 @admin.register(StgServiceDomain)
@@ -188,7 +212,7 @@ class FacilityAdmin(TranslatableAdmin,ImportExportModelAdmin,OverideImport,
         )
     # To display the choice field values use the helper method get_foo_display
     list_display=['name','code','type','owner','location','admin_location',
-        'latitude','longitude','geosource','status','phone_number']
+    'latitude','longitude','geosource','status','phone_number']
     list_display_links = ['code','name',]
     search_fields = ('name','type__name','location__name',) #display search field
     list_per_page = 30 #limit records displayed on admin site to 30
