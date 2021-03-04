@@ -8,6 +8,7 @@ from parler.models import TranslatableModel, TranslatedFields
 def make_choices(values):
     return [(v, v) for v in values]
 
+
 class StgLocationLevel(TranslatableModel):
     LEVEL = ('level 1','Level 2','Level 3', 'Level 4', 'Level 5','Level 6','Level 7')
     locationlevel_id = models.AutoField(primary_key=True)
@@ -118,6 +119,7 @@ class StgEconomicZones(TranslatableModel):
     def save(self, *args, **kwargs):
         super(StgEconomicZones, self).save(*args, **kwargs)
 
+
 class StgSpecialcategorization(TranslatableModel):
     specialstates_id = models.AutoField(primary_key=True)
     uuid = uuid = models.CharField(_('Unique ID'),unique=True,max_length=36,
@@ -127,7 +129,7 @@ class StgSpecialcategorization(TranslatableModel):
             blank=False, null=False),  # Field name made lowercase.
         shortname = models.CharField(_('Short Name'),unique=True,max_length=50,
             blank=False,null=False),  # Field name made lowercase.
-        description = models.TextField(_('Brief Description'),blank=True, null=True)  # Field name made lowercase.
+        description = models.TextField(_('Brief Description'),blank=True, null=True)
     )
     code = models.CharField(max_length=50, unique=True, blank=True,null=False)
     date_created = models.DateTimeField(_('Date Created'),blank=True, null=True,
@@ -211,3 +213,36 @@ class StgLocation(TranslatableModel):
 
     def save(self, *args, **kwargs):
         super(StgLocation, self).save(*args, **kwargs)
+
+
+#  Create phone code related phone use with contacts in modules like facility
+class StgLocationCodes(models.Model):
+    location = models.OneToOneField(StgLocation, models.PROTECT,primary_key=True,
+        verbose_name = _('Country'),
+        help_text=_("You are not allowed to make changes to this Field because it \
+            is related to countries already registed"))  # Field name made lowercase.
+    country_code = models.CharField(_('Phone Code'),unique=True,max_length=15,
+        blank=False,null=False)
+    date_created = models.DateTimeField(_('Date Created'),blank=True, null=True,
+        auto_now_add=True)
+    date_lastupdated = models.DateTimeField(_('Date Modified'),blank=True,
+        null=True, auto_now=True)
+
+    class Meta:
+        managed = True
+        db_table = 'stg_location_codes'
+        verbose_name = _('Phone Code') # this is important in the display on change details and the add button
+        verbose_name_plural = _('Phone Codes')
+        ordering = ('location',)
+
+    def __str__(self):
+        return str(self.location) #display the location name such as country
+
+    # This function makes sure the location name is unique instead of enforcing unque constraint on DB
+    def clean(self): # Don't allow end_period to be greater than the start_period.
+        if StgLocationCodes.objects.filter(country_code=self.country_code).count() and not self.location_id:
+            raise ValidationError(
+                {'country_code':_('Country with similar code exists')})
+
+    def save(self, *args, **kwargs):
+        super(StgLocationCodes, self).save(*args, **kwargs)

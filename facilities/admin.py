@@ -7,7 +7,7 @@ import data_wizard # Solution to data import madness that had refused to go
 from django.forms import TextInput,Textarea #customize textarea row and column size
 from import_export.formats import base_formats
 from .models import (StgFacilityType,StgFacilityServiceMeasureUnits,
-    StgFacilityOwnership,StgHealthFacility,StgServiceDomain,StgFacilityLocation,
+    StgFacilityOwnership,StgHealthFacility,StgServiceDomain,StgLocationCodes,
     FacilityServiceAvailability,FacilityServiceAvailabilityProxy,
     FacilityServiceProvision,StgFacilityServiceIntervention,
     FacilityServiceReadiness,StgFacilityServiceAreas,
@@ -15,7 +15,7 @@ from .models import (StgFacilityType,StgFacilityServiceMeasureUnits,
 from commoninfo.admin import OverideImportExport,OverideExport,OverideImport
 # from publications.serializers import StgKnowledgeProductSerializer
 from .resources import (StgFacilityResourceExport,)
-from regions.models import StgLocation
+from regions.models import StgLocation,StgLocationCodes
 from django_admin_listfilter_dropdown.filters import (
     DropdownFilter, RelatedDropdownFilter, ChoiceDropdownFilter,
     RelatedOnlyDropdownFilter) #custom
@@ -74,47 +74,66 @@ class FacilityOwnership (TranslatableAdmin):
 
 
 class FacilityServiceAvailabilityInline(admin.TabularInline):
+    """
+    Serge requested that a user does not see other users or groups data.
+    This method filters logged in users depending on group roles and permissions.
+    Only the superuser can see all users and locations data while a users
+    can only see data from registered location within his/her group/system role.
+    If a user is not assigned to a group, he/she can only own data - 01/02/2021
+    """
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-
-        # import pdb; pdb.set_trace()
-        # print (qs)
-
         # Get a query of groups the user belongs and flatten it to list object
         groups = list(request.user.groups.values_list('user', flat=True))
         user = request.user.id
         user_location = request.user.location.location_id
         db_locations = StgLocation.objects.all().order_by('location_id')
+        # Returns data for all the locations to the lowest location level
+        if request.user.is_superuser:
+            qs
+        # returns data for AFRO and member countries
+        elif user in groups and user_location==1:
+            qs_admin=db_locations.filter(locationlevel__locationlevel_id__gte=1,
+                locationlevel__locationlevel_id__lte=2)
+        # return data based on the location of the user logged/request location
+        elif user in groups and user_location>1:
+            qs=qs.filter(location=user_location)
+        else: # return own data if not member of a group
+            qs=qs.filter(user=request.user).distinct()
+        return qs
 
-    # def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
-    #     qs = super().get_queryset(request)
-    #
-    #     db_sevicearea = StgFacilityServiceAreas.objects.all().order_by('area_id')
-    #     db_fiterseviceareas=db_sevicearea.filter(intervention_id=1)
-    #
-    #     db_seviceintervention=StgFacilityServiceIntervention.objects.all().order_by(
-    #     'area_id')
-    #     db_fiterseviceinterventions=db_seviceintervention.filter(intervention_id=1)
-    #
-    #     db_sevicedomains=StgServiceDomain.objects.all().order_by('domain_id')
-    #     db_sevicesubdomains=db_sevicedomains.exclude(parent_id__isnull=True)
-    #
-    #     # import pdb; pdb.set_trace() #test the returned queryset
-    #
-    #     if request.user.is_superuser:
-    #         if db_field.name == "domain":
-    #             kwargs["queryset"]=db_sevicesubdomains.distinct()
-    #
-    #     # if db_field.name == "user":
-    #     #         kwargs["queryset"] = CustomUser.objects.filter(
-    #     #             email=request.user)
-    #     return super().formfield_for_foreignkey(db_field, request,**kwargs)
+    def formfield_for_foreignkey(self, db_field, request =None, **kwargs):
+        qs = super().get_queryset(request)
+        db_sevicedomains = StgServiceDomain.objects.all()
+        db_sevicesubdomains=db_sevicedomains.exclude(
+            parent_id__isnull=True).filter(category=1)
+
+        db_seviceareas = StgFacilityServiceAreas.objects.select_related(
+            'intervention__domain').distinct() #good
+        db_interventions=StgFacilityServiceIntervention.objects.select_related(
+            'domain').distinct()
+
+        # import pdb; pdb.set_trace()
+
+        if db_field.name == "domain":
+            kwargs["queryset"]=db_sevicesubdomains
+
+        if db_field.name == "intervention":
+            kwargs["queryset"]=db_interventions
+
+        if db_field.name == "service":
+                kwargs["queryset"]=db_seviceareas
+
+        if db_field.name == "user":
+                kwargs["queryset"] = CustomUser.objects.filter(
+                    email=request.user)
+        return super().formfield_for_foreignkey(db_field, request,**kwargs)
 
     model = FacilityServiceAvailability
     # formset = LimitModelFormset
-    extra = 2 # Used to control  number of empty rows displayed.
+    extra = 3 # Used to control  number of empty rows displayed.
 
-    fields = ('facility','service','intervention','domain','provided','specialunit',
+    fields = ('facility','domain','intervention','service','provided','specialunit',
         'staff','infrastructure','supplies','start_period','end_period',)
 
 
@@ -122,44 +141,37 @@ class FacilityServiceCapacityInline(admin.TabularInline):
     def get_queryset(self, request):
         qs = super().get_queryset(request)
 
-        # import pdb; pdb.set_trace()
-        # print (qs)
-
         # Get a query of groups the user belongs and flatten it to list object
         groups = list(request.user.groups.values_list('user', flat=True))
         user = request.user.id
         user_location = request.user.location.location_id
         db_locations = StgLocation.objects.all().order_by('location_id')
 
-    # def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
-    #     qs = super().get_queryset(request)
-    #
-    #     db_sevicearea = StgFacilityServiceAreas.objects.all().order_by('area_id')
-    #     db_fiterseviceareas=db_sevicearea.filter(intervention_id=1)
-    #
-    #     db_seviceintervention=StgFacilityServiceIntervention.objects.all().order_by(
-    #     'area_id')
-    #     db_fiterseviceinterventions=db_seviceintervention.filter(intervention_id=1)
-    #
-    #     db_sevicedomains=StgServiceDomain.objects.all().order_by('domain_id')
-    #     db_sevicesubdomains=db_sevicedomains.exclude(parent_id__isnull=True)
-    #
-    #     # import pdb; pdb.set_trace() #test the returned queryset
-    #
-    #     if request.user.is_superuser:
-    #         if db_field.name == "domain":
-    #             kwargs["queryset"]=db_sevicesubdomains.distinct()
-    #
-    #     # if db_field.name == "user":
-    #     #         kwargs["queryset"] = CustomUser.objects.filter(
-    #     #             email=request.user)
-    #     return super().formfield_for_foreignkey(db_field, request,**kwargs)
+    def formfield_for_foreignkey(self, db_field, request =None, **kwargs):
+        db_sevicedomains = StgServiceDomain.objects.all()
+        db_sevicesubdomains=db_sevicedomains.exclude(
+            parent_id__isnull=True).filter(category=2).filter(level='Level 2')
+
+        db_provisionunits = StgFacilityServiceMeasureUnits.objects.select_related(
+            'domain') #good
+
+        if db_field.name == "domain":
+            kwargs["queryset"]=db_sevicesubdomains
+
+        if db_field.name == "units":
+            kwargs["queryset"]=db_provisionunits.exclude(domain__parent_id=5) # very sgood
+
+        if db_field.name == "user":
+                kwargs["queryset"] = CustomUser.objects.filter(
+                    email=request.user)
+        return super().formfield_for_foreignkey(db_field, request,**kwargs)
 
     model = FacilityServiceProvision
     # formset = LimitModelFormset
-    extra = 2 # Used to control  number of empty rows displayed.
+    extra = 3 # Used to control  number of empty rows displayed.
 
-    fields = ('facility','units','domain','available','functional',)
+    fields = ('facility','domain','units','available','functional',
+        'start_period','end_period',)
 
 
 class FacilityServiceReadinessInline(admin.TabularInline):
@@ -175,35 +187,32 @@ class FacilityServiceReadinessInline(admin.TabularInline):
         user_location = request.user.location.location_id
         db_locations = StgLocation.objects.all().order_by('location_id')
 
-    # def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
-    #     qs = super().get_queryset(request)
-    #
-    #     db_sevicearea = StgFacilityServiceAreas.objects.all().order_by('area_id')
-    #     db_fiterseviceareas=db_sevicearea.filter(intervention_id=1)
-    #
-    #     db_seviceintervention=StgFacilityServiceIntervention.objects.all().order_by(
-    #     'area_id')
-    #     db_fiterseviceinterventions=db_seviceintervention.filter(intervention_id=1)
-    #
-    #     db_sevicedomains=StgServiceDomain.objects.all().order_by('domain_id')
-    #     db_sevicesubdomains=db_sevicedomains.exclude(parent_id__isnull=True)
-    #
-    #     # import pdb; pdb.set_trace() #test the returned queryset
-    #
-    #     if request.user.is_superuser:
-    #         if db_field.name == "domain":
-    #             kwargs["queryset"]=db_sevicesubdomains.distinct()
-    #
-    #     # if db_field.name == "user":
-    #     #         kwargs["queryset"] = CustomUser.objects.filter(
-    #     #             email=request.user)
-    #     return super().formfield_for_foreignkey(db_field, request,**kwargs)
+    def formfield_for_foreignkey(self, db_field, request =None, **kwargs):
+        db_sevicedomains = StgServiceDomain.objects.all()
+        db_sevicesubdomains=db_sevicedomains.exclude(
+            parent_id__isnull=True).filter(category=3).filter(level='level 1')
+
+        db_provisionunits = StgFacilityServiceMeasureUnits.objects.select_related(
+            'domain')
+
+        # import pdb; pdb.set_trace()
+
+        if db_field.name == "domain":
+            kwargs["queryset"]=db_sevicesubdomains
+
+        if db_field.name == "units":
+            kwargs["queryset"]=db_provisionunits.filter(domain__parent_id=5) #good!
+
+        if db_field.name == "user":
+                kwargs["queryset"] = CustomUser.objects.filter(
+                    email=request.user)
+        return super().formfield_for_foreignkey(db_field, request,**kwargs)
 
     model = FacilityServiceReadiness
     # formset = LimitModelFormset
     extra = 2 # Used to control  number of empty rows displayed.
 
-    fields = ('facility','units','domain','available','require',)
+    fields = ('facility','domain','units','available','require',)
 
 
 @admin.register(StgServiceDomain)
@@ -242,12 +251,10 @@ class FacilityAdmin(TranslatableAdmin,ImportExportModelAdmin,OverideImport,
         models.TextField: {'widget': Textarea(attrs={'rows':3, 'cols':100})},
     }
     """
-    Serge requested that the form for data input be restricted to user's location.
-    Thus, this function is for filtering location to display country level.
-    The location is used to filter the dropdownlist based on the request
-    object's USER, If the user has superuser privileges or is a member of
-    AFRO-DataAdmins, he/she can enter data for all the AFRO member countries
-    otherwise, can only enter data for his/her country.===modified 02/02/2021
+    This method filters logged in users depending on group roles and permissions.
+    Only the superuser can see all users and locations data while a users
+    can only see data from registered location within his/her group/system role.
+    If a user is not assigned to a group, he/she can only own data - 01/02/2021
     """
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -258,11 +265,11 @@ class FacilityAdmin(TranslatableAdmin,ImportExportModelAdmin,OverideImport,
         db_locations = StgLocation.objects.all().order_by('location_id')
         # Returns data for all the locations to the lowest location level
         if request.user.is_superuser:
-            return qs
+            qs
         # returns data for AFRO and member countries
-        elif user in groups and user_location==1:
-            qs_admin=db_locations.filter(locationlevel__locationlevel_id__gte=1,
-                locationlevel__locationlevel_id__lte=2)
+        elif user in groups and user_location<=2:
+            qs_admin=db_locations.filter(locationlevel__locationlevel_id__gt=2,
+                locationlevel__locationlevel_id__lte=3)
         # return data based on the location of the user logged/request location
         elif user in groups and user_location>1:
             qs=qs.filter(location=user_location)
@@ -270,36 +277,37 @@ class FacilityAdmin(TranslatableAdmin,ImportExportModelAdmin,OverideImport,
             qs=qs.filter(user=request.user).distinct()
         return qs
 
-        # import pdb; pdb.set_trace()
-
-        if request.user.is_superuser or request.user.groups.filter(
-            name__icontains='Admin' or request.user.location>=1):
-            return qs #provide access to all instances of fact data indicators
-        return qs.filter(location=request.user.location)
-
+    """
+    Serge requested that the form for data input be restricted to user's location.
+    Thus, this function is for filtering location to display country level.
+    The location is used to filter the dropdownlist based on the request
+    object's USER, If the user has superuser privileges or is a member of
+    AFRO-DataAdmins, he/she can enter data for all the AFRO member countries
+    otherwise, can only enter data for his/her country.===modified 02/02/2021
+    """
     def formfield_for_foreignkey(self, db_field, request =None, **kwargs):
-
+        qs = super().get_queryset(request)
         groups = list(request.user.groups.values_list('user', flat=True))
         user = request.user.id
         # This queryset is used to load country phone code as a list
-        countrycodes=StgFacilityLocation.objects.all()
+        countrycodes=StgLocationCodes.objects.values_list(
+            'country_code',flat=True)
         # This queryset is used to load specific phone code for logged in user
         country_code = countrycodes.filter(location=request.user.location)
 
+
         if db_field.name == "location":
             if request.user.is_superuser:
-                kwargs["queryset"] = StgLocation.objects.all().order_by(
+                kwargs["queryset"] = StgLocationCodes.objects.all().order_by(
                 'location_id')
                 # Looks up for the location level upto the country level
             else:
-                kwargs["queryset"] = StgLocation.objects.filter(
+                kwargs["queryset"] = StgLocationCodes.objects.filter(
                 location_id=request.user.location_id).order_by(
                 'location_id')
-        if db_field.name == "country_code":
-            if request.user.is_superuser:
-                kwargs["queryset"]=countrycodes
-            else:
-                kwargs["queryset"]=country_code # displays specific phone code
+
+        if db_field.name == "status":
+            kwargs["queryset"]=country_code # very sgood
         return super().formfield_for_foreignkey(db_field, request,**kwargs)
 
     """
@@ -332,7 +340,7 @@ class FacilityAdmin(TranslatableAdmin,ImportExportModelAdmin,OverideImport,
             }),
             ('Geolocation and Contact Details', {
                 'fields': ('latitude','longitude','altitude','geosource',
-                'address','email','country_code','phone_part','url',),
+                'address','email','phone_code','phone_part','url',),
             }),
 
         )
@@ -343,6 +351,7 @@ class FacilityAdmin(TranslatableAdmin,ImportExportModelAdmin,OverideImport,
     search_fields = ('name','type__name','location__name',) #display search field
     list_per_page = 30 #limit records displayed on admin site to 30
     exclude = ('date_created','date_lastupdated','code',)
+    readonly_fields = ('phone_code',)
     list_filter = (
         ('location',RelatedOnlyDropdownFilter),
         ('type',RelatedOnlyDropdownFilter),
@@ -362,22 +371,20 @@ class FacilityServiceAvailabilityAdmin(OverideExport):
     """
     def get_queryset(self, request):
         qs = super().get_queryset(request)
+        # Test 3/3/2021
+        db_sevicedomains = StgServiceDomain.objects.all()
+        # db_sevicesubdomains=db_sevicedomains.exclude(parent_id__isnull=True)
+        db_sevicesubdomains=db_sevicedomains.exclude(
+            parent_id__isnull=True).filter(category=1)
+        db_seviceinterventions = StgFacilityServiceIntervention.objects.all()
 
-        # import pdb; pdb.set_trace()
-        # print (qs)
+        db_seviceareas = StgFacilityServiceAreas.objects.all()
+
         # Get a query of groups the user belongs and flatten it to list object
         groups = list(request.user.groups.values_list('user', flat=True))
         user = request.user.id
         user_location = request.user.location.location_id
         db_locations = StgLocation.objects.all().order_by('location_id')
-
-        db_sevicedomains = FacilityServiceAvailability.objects.all().order_by('domain_id')
-        db_sevicesubdomains=db_sevicedomains.exclude(domain__parent_id__isnull=True)
-
-        list_sevicesubdomains= list(
-            db_sevicesubdomains.values_list('domain__parent_id', flat=True))
-
-        # import pdb; pdb.set_trace()
 
         # Returns data for all the locations to the lowest location level
         if request.user.is_superuser:
@@ -402,16 +409,17 @@ class FacilityServiceAvailabilityAdmin(OverideExport):
     otherwise, can only enter data for his/her country.=== modified 02/02/2021
     """
     def formfield_for_foreignkey(self, db_field, request =None, **kwargs):
-
+        db_sevicedomains = StgServiceDomain.objects.all()
+        db_sevicesubdomains=db_sevicedomains.exclude(
+            parent_id__isnull=True).filter(category=1)
 
         if request.user.is_superuser:
             if db_field.name == "domain":
-                kwargs["queryset"]=list_sevicesubdomains.filter(
-                domain__parent_id__gt=1)
+                kwargs["queryset"]=db_sevicesubdomains
 
-        # if db_field.name == "user":
-        #         kwargs["queryset"] = CustomUser.objects.filter(
-        #             email=request.user)
+        if db_field.name == "user":
+                kwargs["queryset"] = CustomUser.objects.filter(
+                    email=request.user)
         return super().formfield_for_foreignkey(db_field, request,**kwargs)
 
     def has_add_permission(self, request, obj=None):
@@ -438,16 +446,25 @@ class FacilityServiceAvailabilityAdmin(OverideExport):
               base_formats.XLSX,
         )
         return [f for f in formats if f().can_export()]
-    fields = ('name','type','location','admin_location','owner')
-    readonly_fields = ('name','type','location','admin_location','owner')
+    fields = ('name','type','location','admin_location','owner','user',)
+    readonly_fields = ('name','type','location','admin_location','owner','user')
     list_display=['name','type','location','admin_location',]
 
 @admin.register(FacilityServiceProvisionProxy)
 class FacilityServiceProvisionAdmin(OverideExport):
+    # def get_queryset(self, request):
+    #     qs = super().get_queryset(request)
+    provision=StgServiceDomain.objects.filter(category=2).filter(parent__isnull=False)
+
+
+    # import pdb; pdb.set_trace()
+
+# StgFacilityServiceMeasureUnits.objects.filter(domain__category=timezone.now()).select_related('blog'):
+
     inlines = [FacilityServiceCapacityInline]
 
-    fields = ('name','type','location','admin_location','owner')
-    readonly_fields = ('name','type','location','admin_location','owner')
+    fields = ('name','type','location','admin_location','owner','user',)
+    readonly_fields = ('name','type','location','admin_location','owner','user')
     list_display=['name','type','location','admin_location',]
 
 
@@ -455,10 +472,9 @@ class FacilityServiceProvisionAdmin(OverideExport):
 class FacilityServiceReadinessAdmin(OverideExport):
     inlines = [FacilityServiceReadinessInline]
 
-    fields = ('name','type','location','admin_location','owner')
-    readonly_fields = ('name','type','location','admin_location','owner')
+    fields = ('name','type','location','admin_location','owner','user')
+    readonly_fields = ('name','type','location','admin_location','owner','user',)
     list_display=['name','type','location','admin_location',]
-
 
 
 @admin.register(StgFacilityServiceMeasureUnits)
@@ -484,24 +500,3 @@ class FacilityServiceInterventionAdmin(TranslatableAdmin,OverideExport):
 @admin.register(StgFacilityServiceAreas)
 class FacilityServiceAreasAdmin(TranslatableAdmin,OverideExport):
     pass
-
-
-@admin.register(StgFacilityLocation)
-class FacilityLocationAdmin(OverideExport):
-    def formfield_for_foreignkey(self, db_field, request =None, **kwargs):
-        if db_field.name == "location":
-            if request.user.is_superuser:
-                kwargs["queryset"] = StgLocation.objects.filter(
-                locationlevel__locationlevel_id__gte=1,
-                locationlevel__locationlevel_id__lte=2).order_by(
-                'locationlevel', 'location_id') #superuser can access all countries at level 2 in the database
-            elif request.user.groups.filter(
-                name__icontains='Admin' or request.user.location>=1):
-                kwargs["queryset"] = StgLocation.objects.filter(
-                locationlevel__locationlevel_id__gte=1,
-                locationlevel__locationlevel_id__lte=2).order_by(
-                    'locationlevel','location_id')
-            else:
-                kwargs["queryset"] = StgLocation.objects.filter(
-                location_id=request.user.location_id) #permissions to user country only
-        return super().formfield_for_foreignkey(db_field, request,**kwargs)

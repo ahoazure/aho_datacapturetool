@@ -278,7 +278,7 @@ class FactDataIndicator(models.Model):
             else:
                 period =str(int(self.start_period))+"-"+ str(int(self.end_period))
         return period
-
+        
     """
     This method overrides the save method to store the derived field into database.
     Note that the last line calls the super class FactDataIndicator to save the value

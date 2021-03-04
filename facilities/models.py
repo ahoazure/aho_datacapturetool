@@ -7,45 +7,11 @@ from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.utils.translation import gettext_lazy as _ # The _ is alias for gettext
 from parler.models import TranslatableModel,TranslatedFields
-from regions.models import StgLocation
+from regions.models import StgLocation,StgLocationCodes
 from authentication.models import CustomUser # for filtering logged in instances
 
 def make_choices(values):
     return [(v, v) for v in values]
-
-
-#  Create  custom country related to regional module but specific to facilities
-class StgFacilityLocation(models.Model):
-    location = models.OneToOneField(StgLocation, models.PROTECT,primary_key=True,
-        verbose_name = _('Country'),
-        help_text=_("You are not allowed to make changes to this Field because it \
-            is related to countries already registed"))  # Field name made lowercase.
-    country_code = models.CharField(_('Phone Code'),unique=True,max_length=15,
-        blank=False,null=False)
-    date_created = models.DateTimeField(_('Date Created'),blank=True, null=True,
-        auto_now_add=True)
-    date_lastupdated = models.DateTimeField(_('Date Modified'),blank=True,
-        null=True, auto_now=True)
-
-    class Meta:
-        managed = True
-        db_table = 'stg_facility_location'
-        verbose_name = _('Country Code') # this is important in the display on change details and the add button
-        verbose_name_plural = _('Facilities Country')
-        ordering = ('location',)
-
-    def __str__(self):
-        return str(self.location) #display the location name such as country
-
-    # This function makes sure the location name is unique instead of enforcing unque constraint on DB
-    # def clean(self): # Don't allow end_period to be greater than the start_period.
-    #     if StgLocation.objects.filter(country_code=self.country_code).count() and not self.location_id:
-    #         raise ValidationError(
-    #             {'country_code':_('Country with similar code exists')})
-
-    def save(self, *args, **kwargs):
-        super(StgFacilityLocation, self).save(*args, **kwargs)
-
 
 
 # New model to take care of resource types added 11/05/2019 courtesy of Gift
@@ -194,10 +160,10 @@ class StgHealthFacility(TranslatableModel):
         blank=False,null=False,default=uuid.uuid4,editable=False)
     code = models.CharField(unique=True, blank=True,null=False,max_length=45)
     user = models.ForeignKey(CustomUser, models.PROTECT,blank=False,
-		verbose_name = 'User Name (Email)',default=2) ## request helper field
+		verbose_name = 'Admin User (Email)',default=2) ## request helper field
     type = models.ForeignKey(StgFacilityType, models.PROTECT,blank=False,
         null=False,verbose_name = _('Facility Type'))
-    location = models.ForeignKey(StgLocation, models.PROTECT,
+    location = models.ForeignKey(StgLocationCodes, models.PROTECT,
         verbose_name = _('Facility Country'),default=24)
     owner = models.ForeignKey(StgFacilityOwnership, models.PROTECT,
         verbose_name = _('Facility Ownership'))
@@ -218,8 +184,9 @@ class StgHealthFacility(TranslatableModel):
         null=True)  # Field name made lowercase.
     email = models.EmailField(_('Email'),unique=True,max_length=250,
         blank=True,null=True)  # Field name made lowercase.
-    country_code = models.ForeignKey(StgFacilityLocation, models.PROTECT,
-        verbose_name = _('Country Phone Code '),default=2)
+    phone_code = models.CharField(_('Phone Code'), max_length=5, blank=True,
+        help_text=_("Specific country code for the phone number such as +242 is \
+        automatically retrieved from database of AFRO member countries"))  # Field name made lowercase.) # validators should be a list
     phone_part = models.CharField(_('Phone Number'),validators=[number_regex],
         max_length=15, blank=True) # validators should be a list
     phone_number = models.CharField(_('Telephone'),validators=[phone_regex],
@@ -247,18 +214,23 @@ class StgHealthFacility(TranslatableModel):
     def __str__(self):
         return self.name #display the data element name
 
-    # """
-    # The purpose of this method is to concatenate phone parts into phone_number
-    #  that has international format ---This takes care of Hillary's request
-    # """
+    # import pdb; pdb.set_trace()
+
+
+    """
+    The purpose of this method is to concatenate country code and phone number
+    into phone_number to be stored in ISO format---takes care of Hillary request
+    """
     def get_phone(self):
-        if self.phone_number is None or (self.country_code and self.phone_part):
-            phone_number=str(self.country_code)+self.phone_part
+        # Assign pone code to a field in related model using dot operator 4/3/2021
+        self.phone_code = self.location.country_code
+        if self.phone_number is None or (self.phone_code and self.phone_part):
+            phone_number=self.phone_code+self.phone_part
         return phone_number
 
     def clean(self): # Don't allow end_period to be greater than the start_period.
         if StgHealthFacility.objects.filter(name=self.name).count() and not \
-            self.facility_id and not self.year_published and not self.location:
+            self.facility_id and not self.type and not self.location:
             raise ValidationError({'name':_('Facility  with the same name exists')})
 
     def save(self, *args, **kwargs):
@@ -380,6 +352,8 @@ class FacilityServiceAvailability(models.Model):
     uuid = uuid = models.CharField(_('Unique ID'),unique=True,max_length=36,
         blank=False,null=False,default=uuid.uuid4,editable=False)
     code = models.CharField(unique=True, blank=True,null=False,max_length=45)
+    user = models.ForeignKey(CustomUser, models.PROTECT,blank=False,
+		verbose_name = _('Admin User (Email)'),default=2) ## request helper field
     facility = models.ForeignKey(StgHealthFacility, models.PROTECT,
         verbose_name = _('Facility Name'))
     domain = models.ForeignKey(StgServiceDomain, models.PROTECT,blank=False,
@@ -462,7 +436,7 @@ class FacilityServiceAvailability(models.Model):
 
     def save(self, *args, **kwargs):
         self.period = self.get_period()
-        super(FacilityServiceAvilability,self).save(*args, **kwargs)
+        super(FacilityServiceAvailability,self).save(*args, **kwargs)
 
 
 class FacilityServiceProvision(models.Model):
@@ -470,6 +444,8 @@ class FacilityServiceProvision(models.Model):
     uuid = uuid = models.CharField(_('Unique ID'),unique=True,max_length=36,
         blank=False,null=False,default=uuid.uuid4,editable=False)
     code = models.CharField(unique=True, blank=True,null=False,max_length=45)
+    user = models.ForeignKey(CustomUser, models.PROTECT,blank=False,
+		verbose_name = 'Admin User (Email)',default=2) ## request helper field
     domain = models.ForeignKey(StgServiceDomain, models.PROTECT,blank=False,
         null=False,verbose_name = _('Provision Domain'),default=2)
     facility = models.ForeignKey(StgHealthFacility, models.PROTECT,
@@ -480,11 +456,13 @@ class FacilityServiceProvision(models.Model):
         null=False,help_text=_("The input must be a zero or positive integer"))
     functional = models.PositiveIntegerField(_('Number Functional'),blank=False,
         null=False,help_text=_("Functional units used in the last month"))
-    start_period = models.DateField(_('Start Date'),null=False,blank=False,
-        auto_now_add=True,help_text=_("Start of reporting period"))
-    end_period  = models.DateField(_('End Date'),null=False,blank=False,
-        auto_now_add=True,help_text=_("End of reporting period"))
-    # period = models.CharField(_('Period'),max_length=25,blank=True,null=False)
+    start_period = models.IntegerField(_('Starting period'),null=False,blank=False,
+        default=datetime.date.today().year,#extract current date year value only
+        help_text=_("This marks the start of reporting period"))
+    end_period  = models.IntegerField(_('Ending Period'),null=False,blank=False,
+        default=datetime.date.today().year, #extract current date year value only
+        help_text=_("This marks the end of reporting. The value must be current \
+            year or greater than the start year"))
     date_created = models.DateTimeField(_('Date Created'),blank=True, null=True,
         auto_now_add=True)
     date_lastupdated = models.DateTimeField(_('Date Modified'),blank=True,
@@ -549,6 +527,8 @@ class FacilityServiceReadiness(models.Model):
     uuid = uuid = models.CharField(_('Unique ID'),unique=True,max_length=36,
         blank=False,null=False,default=uuid.uuid4,editable=False)
     code = models.CharField(unique=True, blank=True,null=False,max_length=45)
+    user = models.ForeignKey(CustomUser, models.PROTECT,blank=False,
+		verbose_name = 'Admin User (Email)',default=2) ## request helper field
     domain = models.ForeignKey(StgServiceDomain, models.PROTECT,blank=False,
         null=False,verbose_name = _('Readiness Domain'),default=2)
     facility = models.ForeignKey(StgHealthFacility, models.PROTECT,
@@ -559,11 +539,13 @@ class FacilityServiceReadiness(models.Model):
         null=False,help_text=_("The input must be a zero or positive integer"))
     require = models.PositiveIntegerField(_('Number needed'),blank=False,
         null=False,help_text=_("Number of units needed for adequacy"))
-    start_period = models.DateField(_('Start Date'),null=False,blank=False,
-        auto_now_add=True,help_text=_("Start of reporting period"))
-    end_period  = models.DateField(_('End Date'),null=False,blank=False,
-        auto_now_add=True,help_text=_("End of reporting period"))
-    # period = models.CharField(_('Period'),max_length=25,blank=True,null=False)
+    start_period = models.IntegerField(_('Starting period'),null=False,blank=False,
+        default=datetime.date.today().year,#extract current date year value only
+        help_text=_("This marks the start of reporting period"))
+    end_period  = models.IntegerField(_('Ending Period'),null=False,blank=False,
+        default=datetime.date.today().year, #extract current date year value only
+        help_text=_("This marks the end of reporting. The value must be current \
+            year or greater than the start year"))
     date_created = models.DateTimeField(_('Date Created'),blank=True, null=True,
         auto_now_add=True)
     date_lastupdated = models.DateTimeField(_('Date Modified'),blank=True,

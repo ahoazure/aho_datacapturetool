@@ -2,7 +2,7 @@ from django.contrib import admin
 from parler.admin import TranslatableAdmin
 from django.forms import TextInput,Textarea #for customizing textarea row and column size
 from .models import (StgLocationLevel,StgEconomicZones,StgWorldbankIncomegroups,
-    StgSpecialcategorization,StgLocation)
+    StgSpecialcategorization,StgLocation,StgLocationCodes)
 from django_admin_listfilter_dropdown.filters import (
     DropdownFilter, RelatedDropdownFilter, ChoiceDropdownFilter,
     RelatedOnlyDropdownFilter) #custom
@@ -159,3 +159,34 @@ class LocationAdmin(TranslatableAdmin,OverideExport):
         ('locationlevel',RelatedOnlyDropdownFilter),
         ('parent',RelatedOnlyDropdownFilter),
     )
+
+
+@admin.register(StgLocationCodes)
+class LocationCodesAdmin(OverideExport):
+
+    """
+    This method filters logged in users depending on group roles and permissions.
+    Only the superuser can see all users and locations data while a users
+    can only see data from registered location within his/her group/system role.
+    If a user is not assigned to a group, he/she can only own data - 01/02/2021
+    """
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        # Get a query of groups the user belongs and flatten it to list object
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        user_location = request.user.location.location_id
+        db_locations = StgLocationCodes.objects.all().order_by('location_id')
+        # Returns data for all the locations to the lowest location level
+        if request.user.is_superuser:
+            qs
+        # returns data for AFRO and member countries
+        elif user in groups and user_location<=2:
+            qs_admin=db_locations.filter(locationlevel__locationlevel_id__gt=2,
+                locationlevel__locationlevel_id__lte=3)
+        # return data based on the location of the user logged/request location
+        elif user in groups and user_location>1:
+            qs=qs.filter(location=user_location)
+        else: # return own data if not member of a group
+            qs=qs.filter(user=request.user).distinct()
+        return qs
