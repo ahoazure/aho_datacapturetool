@@ -306,7 +306,7 @@ class FacilityAdmin(TranslatableAdmin,ImportExportModelAdmin,OverideImport,
                 location_id=request.user.location_id).order_by(
                 'location_id')
 
-        if db_field.name == "status":
+        if db_field.name == "phone_code":
             kwargs["queryset"]=country_code # very sgood
         return super().formfield_for_foreignkey(db_field, request,**kwargs)
 
