@@ -16,6 +16,7 @@ from .models import (ResourceTypeProxy,HumanWorkforceResourceProxy,
 from facilities.models import (StgHealthFacility,)
 from regions.models import StgLocation
 from home.models import StgDatasource
+from authentication.models import CustomUser, CustomGroup
 
 #Methods used to register global actions performed on data. See actions listbox
 def transition_to_pending (modeladmin, request, queryset):
@@ -186,31 +187,65 @@ class TrainingInsitutionAdmin(TranslatableAdmin,OverideExport):
         models.TextField: {'widget': Textarea(attrs={'rows':3, 'cols':100})},
     }
 
+
+    """
+    Serge requested that the form for data input be restricted to user's location.
+    Thus, this function is for filtering location to display country level.
+    The location is used to filter the dropdownlist based on the request
+    object's USER, If the user has superuser privileges or is a member of
+    AFRO-DataAdmins, he/she can enter data for all the AFRO member countries
+    otherwise, can only enter data for his/her country.===modified 02/02/2021
+    """
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        if request.user.is_superuser or request.user.groups.filter(
-            name__icontains='Admin' or request.user.location>=1):
-            return qs #provide access to all instances of fact data indicators
-        return qs.filter(location=request.user.location)
+        # Get a query of groups the user belongs and flatten it to list object
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        user_location = request.user.location.location_id
+        db_locations = StgLocation.objects.all().order_by('location_id')
+        # Returns data for all the locations to the lowest location level
+        if request.user.is_superuser:
+            qs
+        # returns data for AFRO and member countries
+        elif user in groups and user_location==1:
+            qs_admin=db_locations.filter(locationlevel__locationlevel_id__gte=1,
+                locationlevel__locationlevel_id__lte=2)
+        # return data based on the location of the user logged/request location
+        elif user in groups and user_location>1:
+            qs=qs.filter(location=user_location)
+        else: # return own data if not member of a group
+            qs=qs.filter(user=request.user).distinct()
+        return qs
 
-    # #This function is for filtering location to display regional level only. The database field must be parentid for the dropdown list
+    """
+    Serge requested that the form for input be restricted to user's location.
+    Thus, this function is for filtering location to display country level.
+    The location is used to filter the dropdownlist based on the request
+    object's USER, If the user has superuser privileges or is a member of
+    AFRO-DataAdmins, he/she can enter data for all the AFRO member countries
+    otherwise, can only enter data for his/her country.=== modified 02/02/2021
+    """
     def formfield_for_foreignkey(self, db_field, request =None, **kwargs):
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
         if db_field.name == "location":
             if request.user.is_superuser:
-                kwargs["queryset"] = StgLocation.objects.filter(
-                # Looks up for the traslated location level name in related table
-                locationlevel__locationlevel_id__gte=1).order_by(
-                    'locationlevel', 'location_id') #superuser can access all countries at level 2 in the database
-            elif request.user.groups.filter(
-                name__icontains='Admin' or request.user.location>=1):
+                kwargs["queryset"] = StgLocation.objects.all().order_by(
+                'location_id')
+                # Looks up for the location level upto the country level
+            elif user in groups:
                 kwargs["queryset"] = StgLocation.objects.filter(
                 locationlevel__locationlevel_id__gte=1,
                 locationlevel__locationlevel_id__lte=2).order_by(
-                    'locationlevel', 'location_id')
+                'location_id')
             else:
                 kwargs["queryset"] = StgLocation.objects.filter(
-                location_id=request.user.location_id) #permissions to user country only
+                location_id=request.user.location_id).translated(
+                language_code='en')
 
+        if db_field.name == "user":
+                kwargs["queryset"] = CustomUser.objects.filter(
+                    email=request.user)
         return super().formfield_for_foreignkey(db_field, request,**kwargs)
 
     fieldsets = (
@@ -225,6 +260,9 @@ class TrainingInsitutionAdmin(TranslatableAdmin,OverideExport):
             }),
             ('Academic Details', {
                 'fields': ( 'faculty','language','programmes',),
+            }),
+            ('Logged Admin/Staff', {
+                'fields': ('user',)
             }),
         )
 
@@ -284,35 +322,75 @@ class HealthworforceFactsAdmin(ImportExportModelAdmin,ImportExportActionModelAdm
             actions.pop('delete_selected', None)
         return actions
 
+    """
+    Serge requested that the form for data input be restricted to user's location.
+    Thus, this function is for filtering location to display country level.
+    The location is used to filter the dropdownlist based on the request
+    object's USER, If the user has superuser privileges or is a member of
+    AFRO-DataAdmins, he/she can enter data for all the AFRO member countries
+    otherwise, can only enter data for his/her country.===modified 02/02/2021
+    """
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        if request.user.is_superuser or request.user.groups.filter(
-            name__icontains='Admin' or request.user.location>=1):
-            return qs #provide access to all instances of fact data indicators
-        return qs.filter(location=request.user.location)
+        # Get a query of groups the user belongs and flatten it to list object
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        user_location = request.user.location.location_id
+        db_locations = StgLocation.objects.all().order_by('location_id')
+        # Returns data for all the locations to the lowest location level
+        if request.user.is_superuser:
+            qs
+        # returns data for AFRO and member countries
+        elif user in groups and user_location==1:
+            qs_admin=db_locations.filter(locationlevel__locationlevel_id__gte=1,
+                locationlevel__locationlevel_id__lte=2)
+        # return data based on the location of the user logged/request location
+        elif user_location==1:
+            qs=qs.filter(location=user_location) # to validate
+        elif user in groups and user_location>1:
+            qs=qs.filter(location=user_location)
+        else: # return own data if not member of a group
+            qs=qs.filter(user=request.user).distinct()
+        return qs
 
+    """
+    Serge requested that the form for input be restricted to user's location.
+    Thus, this function is for filtering location to display country level.
+    The location is used to filter the dropdownlist based on the request
+    object's USER, If the user has superuser privileges or is a member of
+    AFRO-DataAdmins, he/she can enter data for all the AFRO member countries
+    otherwise, can only enter data for his/her country.=== modified 02/02/2021
+    """
     def formfield_for_foreignkey(self, db_field, request =None, **kwargs):
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
         if db_field.name == "location":
             if request.user.is_superuser:
-                kwargs["queryset"] = StgLocation.objects.filter(
-                # Looks up for the traslated location level name in related table
-                locationlevel__locationlevel_id__gte=1).order_by(
-                    'locationlevel', 'location_id') #superuser can access all countries at level 2 in the database
-            elif request.user.groups.filter(
-                name__icontains='Admin' or request.user.location>=1):
+                kwargs["queryset"] = StgLocation.objects.all().order_by(
+                'location_id')
+                # Looks up for the location level upto the country level
+            elif user in groups:
                 kwargs["queryset"] = StgLocation.objects.filter(
                 locationlevel__locationlevel_id__gte=1,
                 locationlevel__locationlevel_id__lte=2).order_by(
-                    'locationlevel', 'location_id')
+                'location_id')
             else:
                 kwargs["queryset"] = StgLocation.objects.filter(
-                location_id=request.user.location_id) #permissions to user country only
+                location_id=request.user.location_id).translated(
+                language_code='en')
+
+        if db_field.name == "user":
+                kwargs["queryset"] = CustomUser.objects.filter(
+                    email=request.user)
 
         # Restricted permission to data source implememnted on 20/03/2020
         if db_field.name == "datasource":
-            if request.user.is_superuser or request.user.groups.filter(
-                name__icontains='Admin' or request.user.location>=1):
-                kwargs["queryset"] = StgDatasource.objects.all()
+            if request.user.is_superuser:
+                kwargs["queryset"] = StgDatasource.objects.all().order_by(
+                'datasource_id')
+            elif user in groups:
+                kwargs["queryset"] = StgDatasource.objects.all().order_by(
+                'datasource_id')
             else:
                 kwargs["queryset"] = StgDatasource.objects.filter(pk__gte=2)
         return super().formfield_for_foreignkey(db_field, request,**kwargs)
@@ -343,14 +421,16 @@ class HealthworforceFactsAdmin(ImportExportModelAdmin,ImportExportActionModelAdm
         ('Health Occulation/Cadre Data',{
                 'fields': (
                     'cadre_id', 'location','categoryoption','datasource',)
-            }),
-            ('Reporting Period & Values', {
-                'fields':('start_year','end_year','measuremethod','value',
-            )
-            }),
-    )
+        }),
+        ('Reporting Period & Values', {
+            'fields':('start_year','end_year','measuremethod','value',)
+        }),
+        ('Logged Admin/Staff', {
+            'fields': ('user',)
+        }),
+)
     actions =[transition_to_pending, transition_to_approved, transition_to_rejected]
-    list_display=['location','cadre_id','categoryoption','period','value','status']
+    list_display=['cadre_id','location','categoryoption','period','value','status']
     list_display_links = ('cadre_id', 'location',) #display as clickable link
     search_fields = ('location__translations__name','cadre_id__translations__name',
         'period') #display search field

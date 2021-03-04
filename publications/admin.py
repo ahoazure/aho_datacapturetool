@@ -71,12 +71,61 @@ class ProductAdmin(TranslatableAdmin,ImportExportModelAdmin,
         models.TextField: {'widget': Textarea(attrs={'rows':3, 'cols':100})},
     }
 
+    """
+    Serge requested that the form for data input be restricted to user's location.
+    Thus, this function is for filtering location to display country level.
+    The location is used to filter the dropdownlist based on the request
+    object's USER, If the user has superuser privileges or is a member of
+    AFRO-DataAdmins, he/she can enter data for all the AFRO member countries
+    otherwise, can only enter data for his/her country.===modified 02/02/2021
+    """
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        if request.user.is_superuser or request.user.groups.filter(
-            name__icontains='Admin' or request.user.location>=1):
-            return qs #provide access to all instances of fact data indicators
-        return qs.filter(location=request.user.location)
+        # Get a query of groups the user belongs and flatten it to list object
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        user_location = request.user.location.location_id
+        db_locations = StgLocation.objects.all().order_by('location_id')
+        # Returns data for all the locations to the lowest location level
+        if request.user.is_superuser:
+            qs
+        # returns data for AFRO and member countries
+        elif user in groups and user_location==1:
+            qs_admin=db_locations.filter(locationlevel__locationlevel_id__gte=1,
+                locationlevel__locationlevel_id__lte=2)
+        # return data based on the location of the user logged/request location
+        elif user in groups and user_location>1:
+            qs=qs.filter(location=user_location)
+        else: # return own data if not member of a group
+            qs=qs.filter(location=user_location) #to be reconsidered for privacy
+        return qs
+
+    """
+    Serge requested that the form for input be restricted to user's location.
+    Thus, this function is for filtering location to display country level.
+    The location is used to filter the dropdownlist based on the request
+    object's USER, If the user has superuser privileges or is a member of
+    AFRO-DataAdmins, he/she can enter data for all the AFRO member countries
+    otherwise, can only enter data for his/her country.=== modified 02/02/2021
+    """
+    def formfield_for_foreignkey(self, db_field, request =None, **kwargs):
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        if db_field.name == "location":
+            if request.user.is_superuser:
+                kwargs["queryset"] = StgLocation.objects.all().order_by(
+                'location_id')
+                # Looks up for the location level upto the country level
+            elif user in groups:
+                kwargs["queryset"] = StgLocation.objects.filter(
+                locationlevel__locationlevel_id__gte=1,
+                locationlevel__locationlevel_id__lte=2).order_by(
+                'location_id')
+            else:
+                kwargs["queryset"] = StgLocation.objects.filter(
+                location_id=request.user.location_id).translated(
+                language_code='en')
+        return super().formfield_for_foreignkey(db_field, request,**kwargs)
 
     #to make URl clickable, I changed show_url to just url in the list_display tuple
     def show_external_url(self, obj):
@@ -143,6 +192,9 @@ class ProductAdmin(TranslatableAdmin,ImportExportModelAdmin,
             ('Attribution, Access and Approval Details', {
                 'fields': ('author','year_published','internal_url',
                     'external_url','cover_image','comment'),
+            }),
+            ('Logged Admin/Staff', {
+                'fields': ('user',)
             }),
         )
 

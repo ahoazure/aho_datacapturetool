@@ -11,6 +11,7 @@ from parler.models import TranslatableModel, TranslatedFields
 from home.models import (StgDatasource,StgCategoryoption,StgMeasuremethod,
     StgValueDatatype)
 from regions.models import StgLocation
+from authentication.models import CustomUser
 
 def make_choices(values):
     return [(v, v) for v in values]
@@ -170,6 +171,8 @@ class FactDataIndicator(models.Model):
     fact_id = models.AutoField(primary_key=True)  # Field name made lowercase.
     uuid = uuid = models.CharField(_('Unique ID'),unique=True,max_length=36,
         blank=False, null=False,default=uuid.uuid4,editable=False)
+    user = models.ForeignKey(CustomUser, models.PROTECT,blank=False,
+		verbose_name = 'User Name (Email)',default=2) ## request helper field
     indicator = models.ForeignKey(StgIndicator, models.PROTECT,
         verbose_name = _('Indicator Name'))  # Field name made lowercase.
     location = models.ForeignKey(StgLocation, models.PROTECT,
@@ -374,6 +377,8 @@ class aho_factsindicator_archive(models.Model):
         null=False,default=uuid.uuid4,editable=False)
     indicator = models.ForeignKey('StgIndicator', models.PROTECT,blank=False,
         null=False, verbose_name = _('Indicator Name'))  # Field name made lowercase.
+    user = models.ForeignKey(CustomUser, models.PROTECT,blank=False,
+		verbose_name = 'User Name (Email)',default=2) ## request helper field
     location = models.ForeignKey(StgLocation, models.PROTECT,
         verbose_name = _('Location Name'))
     categoryoption = models.ForeignKey(StgCategoryoption, models.PROTECT,blank=False,

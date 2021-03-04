@@ -52,7 +52,7 @@ class CustomGroup(Group):
     roles_manager = models.CharField(_('Roles Manager'),max_length=70, blank=False,
         default="Staff")
     location = models.ForeignKey(StgLocation, models.PROTECT,
-        verbose_name = _('Location Name'))  # Field name made lowercase.
+        verbose_name = _('Role Manager Location'))  # Field name made lowercase.
     date_created = models.DateTimeField(blank=True, null=True, auto_now_add=True,
         verbose_name = _('Date Created'))
     date_lastupdated = models.DateTimeField(blank=True, null=True, auto_now=True,

@@ -19,8 +19,43 @@ class UserAdmin (UserAdmin):
         models.TextField: {'widget': Textarea(attrs={'rows':3, 'cols':100})},
     }
 
-    readonly_fields = ('last_login','date_joined',)
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        # Get a query of groups the user belongs and flatten it to list object
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        user_location = request.user.location
+        if request.user.is_superuser:
+            qs # return all instances of the request instances
+        elif user in groups: # Fetch all instances of group membership
+            qs=qs.filter(location=user_location)
+        else:
+            qs=qs.filter(email=request.user)
+        return qs
 
+    def formfield_for_foreignkey(self, db_field, request =None, **kwargs):
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        user_location = request.user.location.location_id
+        db_locations = StgLocation.objects.all().order_by('location_id')
+
+        if db_field.name == "location":
+            if request.user.is_superuser:
+                kwargs["queryset"] = StgLocation.objects.all().order_by(
+                'location_id')
+                # Looks up for the location level upto the country level
+            elif user in groups and user_location==1:
+                kwargs["queryset"] = StgLocation.objects.filter(
+                locationlevel__locationlevel_id__gte=1,
+                locationlevel__locationlevel_id__lte=2).order_by(
+                'location_id')
+            else:
+                kwargs["queryset"] = StgLocation.objects.filter(
+                location_id=request.user.location_id).translated(
+                language_code='en')
+        return super().formfield_for_foreignkey(db_field, request,**kwargs)
+
+    readonly_fields = ('last_login','date_joined',)
     fieldsets = (
         ('Personal info', {'fields': ('title','first_name', 'last_name',
             'gender','location')}),
@@ -29,7 +64,6 @@ class UserAdmin (UserAdmin):
             'is_superuser', 'groups', 'user_permissions')}),
         ('Login Details', {'fields': ('last_login',)}),
     )
-
     limited_fieldsets = (
         ('Persional Details', {'fields': ('email',)}),
         ('Personal info', {'fields': ('first_name', 'last_name','location')}),
@@ -43,20 +77,55 @@ class UserAdmin (UserAdmin):
     )
 
     list_display = ['first_name','last_name','username','email','gender',
-        'date_joined','last_login']
+        'location','last_login']
     list_display_links = ['first_name','last_name','username','email']
 
-class GroupInline(admin.StackedInline):
-    model = CustomGroup
-    can_delete = False
-    verbose_name_plural = 'Group Roles'
+
+# class GroupInline(admin.StackedInline):
+#     model = CustomGroup
+#     can_delete = False
+#     verbose_name_plural = 'Group Roles'
 
 
 admin.site.unregister(Group) # Must unregister the group in order to use the custom one
 @admin.register(models.CustomGroup)
 class GroupAdmin(BaseGroupAdmin):
-    #inlines = (GroupInline, )
-    list_display = ['name','location','roles_manager']
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        # Get a query of groups the user belongs and flatten it to list object
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        user_location = request.user.location
+        if request.user.is_superuser:
+            qs # return all instances of the request instances
+        elif user in groups and user_location==2: # Fetch instances of group membership
+            qs=qs.filter(location=user_location)
+        else:
+            qs=qs.filter(user=request.user)
+        return qs
+    def formfield_for_foreignkey(self, db_field, request =None, **kwargs):
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        user_location = request.user.location.location_id
+        db_locations = StgLocation.objects.all().order_by('location_id')
+
+        if db_field.name == "location":
+            if request.user.is_superuser:
+                kwargs["queryset"] = StgLocation.objects.all().order_by(
+                'location_id')
+                # Looks up for the location level upto the country level
+            elif user in groups and user_location<=2:
+                kwargs["queryset"] = StgLocation.objects.filter(
+                locationlevel__locationlevel_id__gt=2,
+                locationlevel__locationlevel_id__lte=3).order_by(
+                'location_id')
+            else:
+                kwargs["queryset"] = StgLocation.objects.filter(
+                location_id=request.user.location_id).order_by(
+                'location_id')
+        return super().formfield_for_foreignkey(db_field, request,**kwargs)
+
+    list_display = ['name','roles_manager','location',]
 
 
 # This is the admin interface that allows the super admin to track user activities!

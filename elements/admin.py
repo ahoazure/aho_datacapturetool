@@ -174,51 +174,60 @@ class DataElementFactAdmin(OverideImportExport,ImportExportActionModelAdmin):
     form = DataElementProxyForm #overrides the default django form
 
     """
-    Davy requested that a user does not see other countries data. This function
-    does exactly that by filtering location based on logged in user. For this
-    reason only the country of the loggied in user is displayed whereas the
-    superuser has access to all the countries. Thanks to
-    https://docs.djangoproject.com/en/2.2/ref/contrib/admin/
-    because it gave the exact logic of achiving this non-functional requirement
+    This method filters logged in users depending on group roles and permissions.
+    Only the superuser can see all users and locations data while a users
+    can only see data from registered location within his/her group/system role.
+    If a user is not assigned to a group, he/she can only own data - 01/02/2021
     """
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        if request.user.is_superuser or request.user.groups.filter(
-            name__icontains='Admin' or request.user.location>=1):
-            return qs #provide access to all instances of fact data indicators
-        return qs.filter(location=request.user.location)
+        # Get a query of groups the user belongs and flatten it to list object
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        user_location = request.user.location.location_id
+        db_locations = StgLocation.objects.all().order_by('location_id')
+        # Returns data for all the locations to the lowest location level
+        if request.user.is_superuser:
+            qs
+        # returns data for AFRO and member countries
+        elif user in groups and user_location<=2:
+            qs_admin=db_locations.filter(locationlevel__locationlevel_id__gt=2,
+                locationlevel__locationlevel_id__lte=3)
+        # return data based on the location of the user logged/request location
+        elif user in groups and user_location>1:
+            qs=qs.filter(location=user_location)
+        else: # return own data if not member of a group
+            qs=qs.filter(user=request.user).distinct()
+        return qs
 
     """
-    Davy requested that the form for data input be restricted to the user's country.
-    Thus, this function is for filtering location to display country level.
-    The location is used to fielter the dropdownlist based on the request object's
-    USER, If the user is superuser, he/she can enter data for all AFRO member countries
-    otherwise, can only enter data for his/her country.
+    This method is for filtering location to display country level.Location is
+    used to filter the dropdownlist based on the request object's USER, If the
+    user has superuser privileges or is a member of Admins group he/she can
+    enter data for all the countiesotherwise, can only enter data for his/her
+    country.=== modified 02/02/2021
     """
     def formfield_for_foreignkey(self, db_field, request =None, **kwargs):
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
         if db_field.name == "location":
             if request.user.is_superuser:
+                kwargs["queryset"] = StgLocation.objects.all().order_by(
+                'location_id')
+                # Looks up for the location level upto the country level
+            elif user in groups:
                 kwargs["queryset"] = StgLocation.objects.filter(
-                # Looks up for the traslated location level name in related table
-                locationlevel__locationlevel_id__gte=1).order_by(
-                    'locationlevel', 'location_id') #superuser can access all countries at level 2 in the database
-            elif request.user.groups.filter(
-                name__icontains='Admin' or request.user.location>=1):
-                kwargs["queryset"] = StgLocation.objects.filter(
-                locationlevel__locationlevel_id__gte=1,
-                locationlevel__locationlevel_id__lte=2).order_by(
-                    'locationlevel', 'location_id')
+                locationlevel__locationlevel_id__gt=2,
+                locationlevel__locationlevel_id__lte=3).order_by(
+                'location_id')
             else:
                 kwargs["queryset"] = StgLocation.objects.filter(
-                location_id=request.user.location_id) #permissions to user country only
+                location_id=request.user.location_id).order_by(
+                'location_id')
 
-        # Restricted permission to data source implememnted on 20/03/2020
-        if db_field.name == "datasource":
-            if request.user.is_superuser or request.user.groups.filter(
-                name__icontains='Admin' or request.user.location>=1):
-                kwargs["queryset"] = StgDatasource.objects.all()
-            else:
-                kwargs["queryset"] = StgDatasource.objects.filter(pk__gte=2)
+        if db_field.name == "user":
+                kwargs["queryset"] = CustomUser.objects.filter(
+                    email=request.user)
         return super().formfield_for_foreignkey(db_field, request,**kwargs)
 
     #This function is used to get the afrocode from related indicator model for use in list_display
@@ -271,6 +280,9 @@ class DataElementFactAdmin(OverideImportExport,ImportExportActionModelAdmin):
             }),
             ('Reporting Period & Value', {
                 'fields': ('valuetype','value','target_value',),
+            }),
+            ('Logged Admin/Staff', {
+                'fields': ('user',)
             }),
         )
     #The list display includes a callable get_afrocode that returns data element code for display on admin pages

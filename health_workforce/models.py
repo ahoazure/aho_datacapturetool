@@ -9,6 +9,7 @@ from parler.models import TranslatableModel, TranslatedFields
 from publications.models import (StgResourceType,StgKnowledgeProduct,
     StgProductDomain,)
 from regions.models import StgLocation
+from authentication.models import CustomUser
 from facilities.models import (StgHealthFacility,)
 from home.models import (StgDatasource,StgCategoryoption,StgMeasuremethod)
 
@@ -113,6 +114,8 @@ class StgTrainingInstitution(TranslatableModel):
     institution_id = models.AutoField(primary_key=True)
     uuid = uuid = models.CharField(_('Unique ID'),unique=True,max_length=36,
         blank=False,null=False,default=uuid.uuid4,editable=False)
+    user = models.ForeignKey(CustomUser, models.PROTECT,blank=False,
+		verbose_name = 'User Name (Email)',default=2) ## request helper field
     programmes = models.ManyToManyField(StgInstitutionProgrammes,
         db_table='stg_institution_programs_lookup',blank=True,
         verbose_name = _('Training Programmes'))
@@ -235,6 +238,8 @@ class StgHealthWorkforceFacts(models.Model):
     fact_id = models.AutoField(primary_key=True)
     uuid = uuid = models.CharField(_('Unique ID'),unique=True,max_length=36,
         blank=False,null=False, default=uuid.uuid4,editable=False)
+    user = models.ForeignKey(CustomUser, models.PROTECT,blank=False,
+		verbose_name = 'User Name (Email)',default=2) ## request helper field
     cadre_id = models.ForeignKey(StgHealthCadre, models.PROTECT,
         verbose_name = _('Occupation/Cadre'),default = 1)  # disallow deletion of a related field
     location = models.ForeignKey(StgLocation, models.PROTECT,
