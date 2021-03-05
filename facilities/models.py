@@ -190,7 +190,7 @@ class StgHealthFacility(TranslatableModel):
     phone_part = models.CharField(_('Phone Number'),validators=[number_regex],
         max_length=15, blank=True) # validators should be a list
     phone_number = models.CharField(_('Telephone'),validators=[phone_regex],
-        max_length=15, blank=True) # validators should be a list
+        max_length=15, null=True,blank=True) # validators should be a list
     latitude = models.FloatField(_('Latitude'),blank=True, null=True)
     longitude = models.FloatField(_('Longitude'),blank=True, null=True)
     altitude = models.FloatField(_('Altitude (M)'),blank=True, null=True)
@@ -224,8 +224,11 @@ class StgHealthFacility(TranslatableModel):
     def get_phone(self):
         # Assign pone code to a field in related model using dot operator 4/3/2021
         self.phone_code = self.location.country_code
-        if self.phone_number is None or (self.phone_code and self.phone_part):
-            phone_number=self.phone_code+self.phone_part
+        phone_number = self.phone_number
+        if self.phone_part is not None or self.phone_part!='':
+            phone_number=(self.phone_code+self.phone_part)
+        else:
+            phone_number=None
         return phone_number
 
     def clean(self): # Don't allow end_period to be greater than the start_period.
@@ -234,7 +237,7 @@ class StgHealthFacility(TranslatableModel):
             raise ValidationError({'name':_('Facility  with the same name exists')})
 
     def save(self, *args, **kwargs):
-        # self.phone_number = self.get_phone()
+        self.phone_number = self.get_phone()
         super(StgHealthFacility, self).save(*args, **kwargs)
 
 

@@ -272,13 +272,14 @@ class FactDataIndicator(models.Model):
     the database ---this is very important to take care of Davy's date complexity
     """
     def get_period(self):
+        period = self.period
         if self.period is None or (self.start_period and self.end_period):
             if self.start_period == self.end_period:
                 period = int(self.start_period)
             else:
                 period =str(int(self.start_period))+"-"+ str(int(self.end_period))
         return period
-        
+
     """
     This method overrides the save method to store the derived field into database.
     Note that the last line calls the super class FactDataIndicator to save the value
