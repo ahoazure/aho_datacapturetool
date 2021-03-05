@@ -234,7 +234,7 @@ class StgHealthFacility(TranslatableModel):
             raise ValidationError({'name':_('Facility  with the same name exists')})
 
     def save(self, *args, **kwargs):
-        self.phone_number = self.get_phone()
+        # self.phone_number = self.get_phone()
         super(StgHealthFacility, self).save(*args, **kwargs)
 
 
