@@ -52,7 +52,6 @@ INSTALLED_APPS = [
     'rest_framework_swagger',
     'django_admin_listfilter_dropdown',
     'bootstrap_datepicker_plus',
-    # 'debug_toolbar', # for debugging only!
 ]
 
 # Use BOOTSTRAP3 if you are using Bootstrap 3

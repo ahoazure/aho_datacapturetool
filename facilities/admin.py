@@ -338,7 +338,8 @@ class ServiceDomainAdmin(TranslatableAdmin,OverideExport):
                 'level') #afrocode may be null
             }),
         )
-    list_display=['name','code','shortname','parent','category','level',]
+    list_display=('name','code','shortname','parent','category','level',)
+    list_select_related = ('parent',)
     list_display_links =('code', 'name','shortname',)
     search_fields = ('translations__name','translations__shortname','code',) #display search field
     exclude = ('date_created','date_lastupdated','code',)
@@ -458,7 +459,6 @@ class FacilityAdmin(TranslatableAdmin,ImportExportModelAdmin,OverideImport,
     'latitude','longitude','geosource','status','phone_number')
     # make a 1 query join instead of multiple individual queries
     list_select_related = ('type','owner','location',)
-
     list_display_links = ['code','name',]
     search_fields = ('name','type__name','location__name',) #display search field
     list_per_page = 30 #limit records displayed on admin site to 30
@@ -567,8 +567,10 @@ class FacilityServiceAvailabilityAdmin(OverideExport):
             }),
         )
     inlines = [FacilityServiceAvailabilityInline] # Displays tabular subform
+    list_display=('name','type','location','admin_location','owner',)
+    list_select_related = ('type','owner','location','owner',)
     readonly_fields = ('name','type','location','admin_location','owner','user')
-    list_display=['name','type','location','admin_location',]
+
 
 @admin.register(FacilityServiceProvisionProxy)
 class FacilityServiceProvisionAdmin(OverideExport):
@@ -662,8 +664,10 @@ class FacilityServiceProvisionAdmin(OverideExport):
             }),
         )
     inlines = [FacilityServiceCapacityInline]
-    readonly_fields = ('name','type','location','admin_location','owner','user')
-    list_display=['name','type','location','admin_location',]
+    list_display=('name','type','location','admin_location','owner',)
+    list_select_related = ('type','owner','location','owner',)
+    readonly_fields = ('name','type','location','admin_location','owner')
+
 
 
 @admin.register(FacilityServiceReadinesProxy)
@@ -755,8 +759,9 @@ class FacilityServiceReadinessAdmin(OverideExport):
             }),
         )
     inlines = [FacilityServiceReadinessInline]
+    list_display=('name','type','location','admin_location','owner',)
+    list_select_related = ('type','owner','location','owner',)
     readonly_fields = ('name','type','location','admin_location','owner','user',)
-    list_display=['name','type','location','admin_location',]
 
 
 @admin.register(StgFacilityServiceMeasureUnits)
@@ -799,7 +804,8 @@ class FacilityServiceProvisionUnitsAdmin (TranslatableAdmin):
                 'fields':('name','shortname','description','domain',) #afrocode may be null
             }),
         )
-    list_display=['name','code','shortname','domain','description']
+    list_display=('name','code','shortname','domain','description')
+    list_select_related = ('domain',)
     list_display_links =('code', 'name',)
     search_fields = ('code','translations__name',) #display search field
     list_per_page = 30 #limit records displayed on admin site to 15
@@ -846,7 +852,8 @@ class FacilityServiceInterventionAdmin(TranslatableAdmin,OverideExport):
                 'fields':('name','shortname','description','domain',) #afrocode may be null
             }),
         )
-    list_display=['name','code','shortname','description','domain',]
+    list_display=('name','code','shortname','description','domain',)
+    list_select_related = ('domain',)
     list_display_links =('code', 'name','shortname',)
     search_fields = ('translations__name','translations__shortname','code',) #display search field
     exclude = ('date_created','date_lastupdated','code',)
