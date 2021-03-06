@@ -78,8 +78,8 @@ class FacilityTypeAdmin(TranslatableAdmin):
                 locationlevel__locationlevel_id__gte=1,
                 locationlevel__locationlevel_id__lte=2)
         # return data based on the location of the user logged/request location
-        elif user in groups and user_location>1:
-            qs=qs.filter(location=user_location)
+        # elif user in groups and user_location>1:
+        #     qs=qs.filter(location=user_location)
         return qs
 
     fieldsets = (
@@ -126,8 +126,8 @@ class FacilityOwnership (TranslatableAdmin):
                 locationlevel__locationlevel_id__gte=1,
                 locationlevel__locationlevel_id__lte=2)
         # return data based on the location of the user logged/request location
-        elif user in groups and user_location>1:
-            qs=qs.filter(location=user_location)
+        # elif user in groups and user_location>1:
+        #     qs=qs.filter(location=user_location)
         return qs
 
     fieldsets = (
@@ -236,8 +236,8 @@ class FacilityServiceCapacityInline(admin.TabularInline):
                 locationlevel__locationlevel_id__gte=1,
                 locationlevel__locationlevel_id__lte=2)
         # return data based on the location of the user logged/request location
-        elif user in groups and user_location>1:
-            qs=qs.filter(location=user_location)
+        # elif user in groups and user_location>1:
+        #     qs=qs.filter(location=user_location)
         return qs
 
     def formfield_for_foreignkey(self, db_field, request =None, **kwargs):
@@ -279,8 +279,8 @@ class FacilityServiceReadinessInline(admin.TabularInline):
                 locationlevel__locationlevel_id__gt=2,
                 locationlevel__locationlevel_id__lte=3)
         # return data based on the location of the user logged/request location
-        elif user in groups and user_location>1:
-            qs=qs.filter(location=user_location)
+        # elif user in groups and user_location>1:
+        #     qs=qs.filter(location=user_location)
         return qs
 
         # Get a query of groups the user belongs and flatten it to list object
@@ -343,8 +343,8 @@ class ServiceDomainAdmin(TranslatableAdmin,OverideExport):
                 locationlevel__locationlevel_id__gt=2,
                 locationlevel__locationlevel_id__lte=3)
         # return data based on the location of the user logged/request location
-        elif user in groups and user_location>1:
-            qs=qs.filter(location=user_location)
+        # elif user in groups and user_location>1:
+        #     qs=qs.filter(location=user_location)
         return qs
 
     fieldsets = (
