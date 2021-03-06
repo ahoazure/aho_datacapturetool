@@ -77,9 +77,6 @@ class FacilityTypeAdmin(TranslatableAdmin):
             qs_admin=db_locations.filter(
                 locationlevel__locationlevel_id__gte=1,
                 locationlevel__locationlevel_id__lte=2)
-        # return data based on the location of the user logged/request location
-        # elif user in groups and user_location>1:
-        #     qs=qs.filter(location=user_location)
         return qs
 
     fieldsets = (
@@ -125,9 +122,6 @@ class FacilityOwnership (TranslatableAdmin):
             qs_admin=db_locations.filter(
                 locationlevel__locationlevel_id__gte=1,
                 locationlevel__locationlevel_id__lte=2)
-        # return data based on the location of the user logged/request location
-        # elif user in groups and user_location>1:
-        #     qs=qs.filter(location=user_location)
         return qs
 
     fieldsets = (
@@ -235,9 +229,6 @@ class FacilityServiceCapacityInline(admin.TabularInline):
             qs_admin=db_locations.filter(
                 locationlevel__locationlevel_id__gte=1,
                 locationlevel__locationlevel_id__lte=2)
-        # return data based on the location of the user logged/request location
-        # elif user in groups and user_location>1:
-        #     qs=qs.filter(location=user_location)
         return qs
 
     def formfield_for_foreignkey(self, db_field, request =None, **kwargs):
@@ -278,9 +269,6 @@ class FacilityServiceReadinessInline(admin.TabularInline):
             qs_admin=db_locations.filter(
                 locationlevel__locationlevel_id__gt=2,
                 locationlevel__locationlevel_id__lte=3)
-        # return data based on the location of the user logged/request location
-        # elif user in groups and user_location>1:
-        #     qs=qs.filter(location=user_location)
         return qs
 
         # Get a query of groups the user belongs and flatten it to list object
@@ -342,9 +330,6 @@ class ServiceDomainAdmin(TranslatableAdmin,OverideExport):
             qs_admin=db_locations.filter(
                 locationlevel__locationlevel_id__gt=2,
                 locationlevel__locationlevel_id__lte=3)
-        # return data based on the location of the user logged/request location
-        # elif user in groups and user_location>1:
-        #     qs=qs.filter(location=user_location)
         return qs
 
     fieldsets = (
@@ -469,8 +454,11 @@ class FacilityAdmin(TranslatableAdmin,ImportExportModelAdmin,OverideImport,
 
         )
     # To display the choice field values use the helper method get_foo_display
-    list_display=['name','code','type','owner','location','admin_location',
-    'latitude','longitude','geosource','status','phone_number']
+    list_display=('name','code','type','owner','location','admin_location',
+    'latitude','longitude','geosource','status','phone_number')
+    # make a 1 query join instead of multiple individual queries
+    list_select_related = ('type','owner','location',)
+
     list_display_links = ['code','name',]
     search_fields = ('name','type__name','location__name',) #display search field
     list_per_page = 30 #limit records displayed on admin site to 30
