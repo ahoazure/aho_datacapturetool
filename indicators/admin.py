@@ -200,6 +200,7 @@ class IndicatorProxyForm(forms.ModelForm):
         fields = ('indicator','location', 'categoryoption','datasource',
             'measuremethod','start_period','end_period','period',
             'value_received','string_value')
+
         model = FactDataIndicator
 
     def clean(self):

@@ -38,7 +38,7 @@ class StgFacilityType(TranslatableModel):
         managed = True
         db_table = 'stg_facility_type'
         verbose_name = _('Facility Type')
-        verbose_name_plural = _('  Facility Types')
+        verbose_name_plural = _(' Facility Types')
         ordering = ('translations__name',)
 
     def __str__(self):
@@ -66,7 +66,7 @@ class StgFacilityOwnership(TranslatableModel):
             null=False),
         shortname = models.CharField(_('Short Name'),unique=True,max_length=50,
             blank=False,null=False),  # Field name made lowercase.
-        description = models.TextField(_('Brief Description'),blank=True, null=True)  # Field name made lowercase.
+        description = models.TextField(_('Description'),blank=True, null=True)  # Field name made lowercase.
     )
     date_created = models.DateTimeField(_('Date Created'),blank=True, null=True,
         auto_now_add=True)
@@ -78,7 +78,7 @@ class StgFacilityOwnership(TranslatableModel):
         managed = True
         db_table = 'stg_facility_owner'
         verbose_name = _('Facility Owner')
-        verbose_name_plural = _(' Facilities Ownerhip')
+        verbose_name_plural = _(' Facility Ownerhip')
         ordering = ('translations__name',)
 
     def __str__(self):
@@ -130,7 +130,7 @@ class StgServiceDomain(TranslatableModel):
         managed = True # must be true to create the model table in mysql
         db_table = 'stg_facility_services'
         verbose_name = _('Facility Service')
-        verbose_name_plural = _('Facility Services')
+        verbose_name_plural = _(' Facility Services')
         ordering = ('translations__name',)
 
     def __str__(self):
@@ -177,7 +177,7 @@ class StgHealthFacility(TranslatableModel):
     # admin_location = models.ForeignKey(StgLocation, models.PROTECT,
     #     verbose_name=_('Administrative Location'),related_name='admin_location')
     translations = TranslatedFields(
-        description = models.TextField(_('Facility Description'),blank=True,
+        description = models.TextField(_('Facility Type Description'),blank=True,
         null=True) # Field name made lowercase.
     )  # End of translatable field(s)
     address = models.CharField(_('Contact Address'),max_length=500,blank=True,
@@ -208,14 +208,11 @@ class StgHealthFacility(TranslatableModel):
         managed = True
         db_table = 'stg_health_facility'
         verbose_name = _('Health Facility')
-        verbose_name_plural = _('   Health Facilities')
+        verbose_name_plural = _('    Health Facilities')
         ordering = ('name',)
 
     def __str__(self):
         return self.name #display the data element name
-
-    # import pdb; pdb.set_trace()
-
 
     """
     The purpose of this method is to concatenate country code and phone number
@@ -231,6 +228,19 @@ class StgHealthFacility(TranslatableModel):
             phone_number=None
         return phone_number
 
+    """
+    The purpose of this method is to populate the facility description with
+    description from the related facility types model
+    """
+    def get_description(self):
+        # Assign description to a field in related model using dot operator 6/3/2021
+        description = self.type.description
+        if self.description is None or self.description=='':
+            description = self.name+description
+        return description
+
+    # import pdb; pdb.set_trace()
+
     def clean(self): # Don't allow end_period to be greater than the start_period.
         if StgHealthFacility.objects.filter(name=self.name).count() and not \
             self.facility_id and not self.type and not self.location:
@@ -238,6 +248,7 @@ class StgHealthFacility(TranslatableModel):
 
     def save(self, *args, **kwargs):
         self.phone_number = self.get_phone()
+        self.description  = self.get_description()
         super(StgHealthFacility, self).save(*args, **kwargs)
 
 
@@ -249,9 +260,9 @@ class StgFacilityServiceMeasureUnits(TranslatableModel):
     code = models.CharField(_('Code'),unique=True, max_length=50,
         blank=True,null=True)
     domain = models.ForeignKey(StgServiceDomain, models.PROTECT,blank=False,
-        null=False,verbose_name=_('Service Category'))
+        null=False,verbose_name=_('Service Provision Category'))
     translations = TranslatedFields(
-        name = models.CharField(_('Units of Provision Name'),max_length=230,
+        name = models.CharField(_('Units of Provision'),max_length=230,
             blank=False, null=False),  # Field name made lowercase.
         shortname = models.CharField(_('Short Name'),unique=True,max_length=50,
             blank=True,null=True),  # Field name made lowercase.
@@ -277,7 +288,7 @@ class StgFacilityServiceMeasureUnits(TranslatableModel):
         if StgFacilityServiceMeasureUnits.objects.filter(
             translations__name=self.name).count() and not self.infra_id and not \
                 self.code:
-            raise ValidationError({'name':_('Facility type with the same \
+            raise ValidationError({'name':_('Unit of provision with the same \
                 name exists')})
 
     def save(self, *args, **kwargs):
@@ -311,7 +322,7 @@ class StgFacilityServiceIntervention(TranslatableModel):
         managed = True
         db_table = 'stg_facility_service_intervention'
         verbose_name = _('Facility Servce Intervention')
-        verbose_name_plural = _('  Service Interventions')
+        verbose_name_plural = _(' Service Interventions')
         ordering = ('translations__name',)
 
     def __str__(self):
@@ -323,7 +334,7 @@ class StgFacilityServiceAreas(TranslatableModel):
     area_id = models.AutoField(primary_key=True)
     uuid = uuid = models.CharField(_('Unique ID'),unique=True,max_length=36,
         blank=False,null=False,default=uuid.uuid4,editable=False)
-    code = models.CharField(_('Facility Code'),unique=True, max_length=50,
+    code = models.CharField(_('Code'),unique=True, max_length=50,
         blank=True,null=True)
     intervention = models.ForeignKey(StgFacilityServiceIntervention,models.PROTECT,
         blank=False,null=False,verbose_name=_('Intervention Areas'),default=2)
@@ -344,7 +355,7 @@ class StgFacilityServiceAreas(TranslatableModel):
         managed = True
         db_table = 'stg_facility_service_area'
         verbose_name = _('Service Area')
-        verbose_name_plural = _('  Service Areas')
+        verbose_name_plural = _(' Service Areas')
         ordering = ('translations__name',)
 
     def __str__(self):
@@ -354,13 +365,13 @@ class FacilityServiceAvailability(models.Model):
     availability_id = models.AutoField(primary_key=True)
     uuid = uuid = models.CharField(_('Unique ID'),unique=True,max_length=36,
         blank=False,null=False,default=uuid.uuid4,editable=False)
-    code = models.CharField(unique=True, blank=True,null=False,max_length=45)
+    code = models.CharField(unique=True, blank=True,null=False,max_length=50)
     user = models.ForeignKey(CustomUser, models.PROTECT,blank=False,
 		verbose_name = _('Admin User (Email)'),default=2) ## request helper field
     facility = models.ForeignKey(StgHealthFacility, models.PROTECT,
         verbose_name = _('Facility Name'))
     domain = models.ForeignKey(StgServiceDomain, models.PROTECT,blank=False,
-        null=False,verbose_name = _('Service Domain'),default=2)
+        null=False,verbose_name = _('Service Area Domain'),default=2)
     intervention = models.ForeignKey(StgFacilityServiceIntervention,models.PROTECT,
         blank=False,null=False,verbose_name=_('Intervention Areas'),default=1)
     service = models.ForeignKey(StgFacilityServiceAreas,models.PROTECT,
@@ -375,14 +386,9 @@ class FacilityServiceAvailability(models.Model):
         default=False)
     supplies = models.BooleanField(_('Supplies Appropriate?'),
         default=False)
-    start_period = models.IntegerField(_('Starting period'),null=False,blank=False,
-        default=datetime.date.today().year,#extract current date year value only
+    date_assessed = models.DateField(_('Assessment Date'),null=False,blank=False,
+        default=timezone.now,#extract current date year value only
         help_text=_("This marks the start of reporting period"))
-    end_period  = models.IntegerField(_('Ending Period'),null=False,blank=False,
-        default=datetime.date.today().year, #extract current date year value only
-        help_text=_("This marks the end of reporting. The value must be current \
-            year or greater than the start year"))
-    period = models.CharField(_('Period'),max_length=25,blank=True,null=False)
     date_created = models.DateTimeField(_('Date Created'),blank=True, null=True,
         auto_now_add=True)
     date_lastupdated = models.DateTimeField(_('Date Modified'),blank=True,
@@ -392,53 +398,16 @@ class FacilityServiceAvailability(models.Model):
     class Meta:
         managed = True # must be true to create the model table in mysql
         unique_together = ('domain','facility','intervention','service',
-        'start_period','end_period')
+        'date_assessed',)
         db_table = 'stg_facility_services_availability'
         verbose_name = _('Service Availability')
-        verbose_name_plural = _('Services Avilability')
+        verbose_name_plural = _('   Services Avilability')
         ordering = ('domain',)
 
     def __str__(self):
         return str(self.domain)
 
-    """
-    The purpose of this method is to concatenate the date that are entered as
-    start_period and end_period and save the concatenated value as a string in
-    the database ---this is very important to take care of Davy's date complexity
-    """
-    def get_period(self):
-        if self.period is None or (self.start_period and self.end_period):
-            if self.start_period == self.end_period:
-                period = int(self.start_period)
-            else:
-                period =str(int(self.start_period))+"-"+ str(int(self.end_period))
-        return period
-
-    """
-    The purpose of this method is to compare the start_period to the end_period.
-    If the start_period is greater than the end_period athe model should show
-    an inlines error message and wait until the user corrects the mistake.
-    """
-    def clean(self): # Don't allow end_period to be greater than the start_period.
-        if self.start_period <=1900 or self.start_period > datetime.date.today().year:
-            raise ValidationError({'start_period':_(
-                'Sorry! Start year cannot < 1900 or greater than current Year ')})
-        elif self.end_period <=1900 or self.end_period > datetime.date.today().year:
-            raise ValidationError({'end_period':_(
-                'Sorry! The ending year cannot be lower than the start year or \
-                greater than the current Year ')})
-        elif self.end_period < self.start_period and self.start_period is not None:
-            raise ValidationError({'end_period':_(
-                'Sorry! Ending period cannot be lower than the start period. \
-                 Please make corrections')})
-
-    # # Ensure the intervention area matches the service provision area
-    #     if self.intervention[:3]!= self.service[:3]:
-    #         raise ValidationError({'intervention':_(
-    #             'Sorry! Intervention area must match service provision area')})
-
     def save(self, *args, **kwargs):
-        self.period = self.get_period()
         super(FacilityServiceAvailability,self).save(*args, **kwargs)
 
 
@@ -450,7 +419,7 @@ class FacilityServiceProvision(models.Model):
     user = models.ForeignKey(CustomUser, models.PROTECT,blank=False,
 		verbose_name = 'Admin User (Email)',default=2) ## request helper field
     domain = models.ForeignKey(StgServiceDomain, models.PROTECT,blank=False,
-        null=False,verbose_name = _('Provision Domain'),default=2)
+        null=False,verbose_name = _('Service Capacity Domain'),default=2)
     facility = models.ForeignKey(StgHealthFacility, models.PROTECT,
         verbose_name = _('Facility Name'))
     units = models.ForeignKey(StgFacilityServiceMeasureUnits,models.PROTECT,
@@ -459,13 +428,9 @@ class FacilityServiceProvision(models.Model):
         null=False,help_text=_("The input must be a zero or positive integer"))
     functional = models.PositiveIntegerField(_('Number Functional'),blank=False,
         null=False,help_text=_("Functional units used in the last month"))
-    start_period = models.IntegerField(_('Starting period'),null=False,blank=False,
-        default=datetime.date.today().year,#extract current date year value only
+    date_assessed = models.DateField(_('Assessment Date'),null=False,blank=False,
+        default=timezone.now,#extract current date year value only
         help_text=_("This marks the start of reporting period"))
-    end_period  = models.IntegerField(_('Ending Period'),null=False,blank=False,
-        default=datetime.date.today().year, #extract current date year value only
-        help_text=_("This marks the end of reporting. The value must be current \
-            year or greater than the start year"))
     date_created = models.DateTimeField(_('Date Created'),blank=True, null=True,
         auto_now_add=True)
     date_lastupdated = models.DateTimeField(_('Date Modified'),blank=True,
@@ -478,47 +443,11 @@ class FacilityServiceProvision(models.Model):
         #     'intervention')
         db_table = 'stg_facility_services_provision'
         verbose_name = _('Provision Capacity')
-        verbose_name_plural = _('Provision Capacities')
+        verbose_name_plural = _('   Provision Capacities')
         ordering = ('domain',)
 
     def __str__(self):
         return str(self.domain)
-
-    # """
-    # The purpose of this method is to concatenate the date that are entered as
-    # start_period and end_period and save the concatenated value as a string in
-    # the database ---this is very important to take care of Davy's date complexity
-    # """
-    # def get_period(self):
-    #     if self.period is None or (self.start_period and self.end_period):
-    #         if self.start_period == self.end_period:
-    #             period = int(self.start_period)
-    #         else:
-    #             period =str(int(self.start_period))+"-"+ str(int(self.end_period))
-    #     return period
-
-    # """
-    # The purpose of this method is to compare the start_period to the end_period.
-    # If the start_period is greater than the end_period athe model should show
-    # an inlines error message and wait until the user corrects the mistake.
-    # """
-    # def clean(self): # Don't allow end_period to be greater than the start_period.
-    #     if self.start_period <=1900 or self.start_period > datetime.date.today().year:
-    #         raise ValidationError({'start_period':_(
-    #             'Sorry! Start year cannot < 1900 or greater than current Year ')})
-    #     elif self.end_period <=1900 or self.end_period > datetime.date.today().year:
-    #         raise ValidationError({'end_period':_(
-    #             'Sorry! The ending year cannot be lower than the start year or \
-    #             greater than the current Year ')})
-    #     elif self.end_period < self.start_period and self.start_period is not None:
-    #         raise ValidationError({'end_period':_(
-    #             'Sorry! Ending period cannot be lower than the start period. \
-    #              Please make corrections')})
-
-    # # Ensure the intervention area matches the service provision area
-    #     if self.intervention[:3]!= self.service[:3]:
-    #         raise ValidationError({'intervention':_(
-    #             'Sorry! Intervention area must match service provision area')})
 
     def save(self, *args, **kwargs):
         # self.period = self.get_period()
@@ -533,7 +462,7 @@ class FacilityServiceReadiness(models.Model):
     user = models.ForeignKey(CustomUser, models.PROTECT,blank=False,
 		verbose_name = 'Admin User (Email)',default=2) ## request helper field
     domain = models.ForeignKey(StgServiceDomain, models.PROTECT,blank=False,
-        null=False,verbose_name = _('Readiness Domain'),default=2)
+        null=False,verbose_name = _('Service Readiness Domain'),default=2)
     facility = models.ForeignKey(StgHealthFacility, models.PROTECT,
         verbose_name = _('Facility Name'))
     units = models.ForeignKey(StgFacilityServiceMeasureUnits,models.PROTECT,
@@ -542,13 +471,9 @@ class FacilityServiceReadiness(models.Model):
         null=False,help_text=_("The input must be a zero or positive integer"))
     require = models.PositiveIntegerField(_('Number needed'),blank=False,
         null=False,help_text=_("Number of units needed for adequacy"))
-    start_period = models.IntegerField(_('Starting period'),null=False,blank=False,
-        default=datetime.date.today().year,#extract current date year value only
+    date_assessed = models.DateField(_('Assessment Date'),null=False,blank=False,
+        default=timezone.now,#extract current date year value only
         help_text=_("This marks the start of reporting period"))
-    end_period  = models.IntegerField(_('Ending Period'),null=False,blank=False,
-        default=datetime.date.today().year, #extract current date year value only
-        help_text=_("This marks the end of reporting. The value must be current \
-            year or greater than the start year"))
     date_created = models.DateTimeField(_('Date Created'),blank=True, null=True,
         auto_now_add=True)
     date_lastupdated = models.DateTimeField(_('Date Modified'),blank=True,
@@ -560,47 +485,11 @@ class FacilityServiceReadiness(models.Model):
         #     'intervention')
         db_table = 'stg_facility_services_readiness'
         verbose_name = _('Service Readiness')
-        verbose_name_plural = _('Service Readiness')
+        verbose_name_plural = _('   Service Readiness')
         ordering = ('domain',)
 
     def __str__(self):
         return str(self.domain)
-
-    # """
-    # The purpose of this method is to concatenate the date that are entered as
-    # start_period and end_period and save the concatenated value as a string in
-    # the database ---this is very important to take care of Davy's date complexity
-    # """
-    # def get_period(self):
-    #     if self.period is None or (self.start_period and self.end_period):
-    #         if self.start_period == self.end_period:
-    #             period = int(self.start_period)
-    #         else:
-    #             period =str(int(self.start_period))+"-"+ str(int(self.end_period))
-    #     return period
-
-    # """
-    # The purpose of this method is to compare the start_period to the end_period.
-    # If the start_period is greater than the end_period athe model should show
-    # an inlines error message and wait until the user corrects the mistake.
-    # """
-    # def clean(self): # Don't allow end_period to be greater than the start_period.
-    #     if self.start_period <=1900 or self.start_period > datetime.date.today().year:
-    #         raise ValidationError({'start_period':_(
-    #             'Sorry! Start year cannot < 1900 or greater than current Year ')})
-    #     elif self.end_period <=1900 or self.end_period > datetime.date.today().year:
-    #         raise ValidationError({'end_period':_(
-    #             'Sorry! The ending year cannot be lower than the start year or \
-    #             greater than the current Year ')})
-    #     elif self.end_period < self.start_period and self.start_period is not None:
-    #         raise ValidationError({'end_period':_(
-    #             'Sorry! Ending period cannot be lower than the start period. \
-    #              Please make corrections')})
-
-    # # Ensure the intervention area matches the service provision area
-    #     if self.intervention[:3]!= self.service[:3]:
-    #         raise ValidationError({'intervention':_(
-    #             'Sorry! Intervention area must match service provision area')})
 
     def save(self, *args, **kwargs):
         # self.period = self.get_period()

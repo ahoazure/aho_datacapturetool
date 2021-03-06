@@ -2,6 +2,7 @@ from django.contrib import admin
 from parler.admin import TranslatableAdmin
 from django.utils.html import format_html
 from django.forms import BaseInlineFormSet
+from django.shortcuts import redirect
 from django import forms
 import data_wizard # Solution to data import madness that had refused to go
 from django.forms import TextInput,Textarea #customize textarea row and column size
@@ -22,6 +23,7 @@ from django_admin_listfilter_dropdown.filters import (
 from import_export.admin import (ImportExportModelAdmin, ExportMixin,
     ImportExportActionModelAdmin)
 from authentication.models import CustomUser, CustomGroup
+from bootstrap_datepicker_plus import DatePickerInput # Nice date picker 06/03
 
 #Methods used to register global actions performed on data. See actions listbox
 def transition_to_pending (modeladmin, request, queryset):
@@ -52,6 +54,40 @@ class FacilityTypeAdmin(TranslatableAdmin):
         models.CharField: {'widget': TextInput(attrs={'size':'100'})},
         models.TextField: {'widget': Textarea(attrs={'rows':3, 'cols':100})},
     }
+
+    """
+    Serge requested that a user does not see other users or groups data.
+    This method filters logged in users depending on group roles and permissions.
+    Only the superuser can see all users and locations data while a users
+    can only see data from registered location within his/her group/system role.
+    If a user is not assigned to a group, he/she can only own data - 01/02/2021
+    """
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        # Get a query of groups the user belongs and flatten it to list object
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        user_location = request.user.location.location_id
+        db_locations = StgLocation.objects.all().order_by('location_id')
+        # Returns data for all the locations to the lowest location level
+        if request.user.is_superuser:
+            qs
+        # returns data for AFRO and member countries
+        elif user in groups and user_location==1:
+            qs_admin=db_locations.filter(
+                locationlevel__locationlevel_id__gte=1,
+                locationlevel__locationlevel_id__lte=2)
+        # return data based on the location of the user logged/request location
+        elif user in groups and user_location>1:
+            qs=qs.filter(location=user_location)
+        return qs
+
+    fieldsets = (
+        ('Health Facility Type', {
+                'fields':('name','shortname','description',) #afrocode may be null
+            }),
+        )
+
     list_display=['name','code','shortname','description']
     list_display_links =('code', 'name',)
     search_fields = ('code','translations__name',) #display search field
@@ -66,11 +102,54 @@ class FacilityOwnership (TranslatableAdmin):
         models.CharField: {'widget': TextInput(attrs={'size':'100'})},
         models.TextField: {'widget': Textarea(attrs={'rows':3, 'cols':100})},
     }
+
+    """
+    Serge requested that a user does not see other users or groups data.
+    This method filters logged in users depending on group roles and permissions.
+    Only the superuser can see all users and locations data while a users
+    can only see data from registered location within his/her group/system role.
+    If a user is not assigned to a group, he/she can only own data - 01/02/2021
+    """
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        # Get a query of groups the user belongs and flatten it to list object
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        user_location = request.user.location.location_id
+        db_locations = StgLocation.objects.all().order_by('location_id')
+        # Returns data for all the locations to the lowest location level
+        if request.user.is_superuser:
+            qs
+        # returns data for AFRO and member countries
+        elif user in groups and user_location==1:
+            qs_admin=db_locations.filter(
+                locationlevel__locationlevel_id__gte=1,
+                locationlevel__locationlevel_id__lte=2)
+        # return data based on the location of the user logged/request location
+        elif user in groups and user_location>1:
+            qs=qs.filter(location=user_location)
+        return qs
+
+    fieldsets = (
+        ('Facility Ownership Details', {
+                'fields':('name','shortname','description',) #afrocode may be null
+            }),
+        )
     list_display=['name','code','shortname','description',]
     list_display_links =('code', 'name',)
     search_fields = ('code','translations__name','translations__shortname',) #display search field
     list_per_page = 30 #limit records displayed on admin site to 15
     exclude = ('date_created','date_lastupdated','code',)
+
+
+class FacilityServiceAvailabilityProxyForm(forms.ModelForm):
+    class Meta:
+        model = FacilityServiceAvailability
+        fields = ('facility','domain','intervention','service','provided',
+        'specialunit','staff','infrastructure','supplies','date_assessed',)
+        widgets = {
+            'date_assessed': DatePickerInput(), # # default date-format %m/%d/%Y will be used
+        }
 
 
 class FacilityServiceAvailabilityInline(admin.TabularInline):
@@ -93,13 +172,12 @@ class FacilityServiceAvailabilityInline(admin.TabularInline):
             qs
         # returns data for AFRO and member countries
         elif user in groups and user_location==1:
-            qs_admin=db_locations.filter(locationlevel__locationlevel_id__gte=1,
+            qs_admin=db_locations.filter(
+                locationlevel__locationlevel_id__gte=1,
                 locationlevel__locationlevel_id__lte=2)
         # return data based on the location of the user logged/request location
         elif user in groups and user_location>1:
             qs=qs.filter(location=user_location)
-        else: # return own data if not member of a group
-            qs=qs.filter(user=request.user).distinct()
         return qs
 
     def formfield_for_foreignkey(self, db_field, request =None, **kwargs):
@@ -123,29 +201,44 @@ class FacilityServiceAvailabilityInline(admin.TabularInline):
 
         if db_field.name == "service":
                 kwargs["queryset"]=db_seviceareas
-
-        if db_field.name == "user":
-                kwargs["queryset"] = CustomUser.objects.filter(
-                    email=request.user)
         return super().formfield_for_foreignkey(db_field, request,**kwargs)
 
+    # form = FacilityServiceAvailabilityProxyForm #overrides the default model form
     model = FacilityServiceAvailability
     # formset = LimitModelFormset
-    extra = 3 # Used to control  number of empty rows displayed.
+    extra = 1 # Used to control  number of empty rows displayed.
 
-    fields = ('facility','domain','intervention','service','provided','specialunit',
-        'staff','infrastructure','supplies','start_period','end_period',)
+    fields = ('facility','domain','intervention','service','provided',
+        'specialunit','staff','infrastructure','supplies','date_assessed',)
 
 
 class FacilityServiceCapacityInline(admin.TabularInline):
+    """
+    Serge requested that a user does not see other users or groups data.
+    This method filters logged in users depending on group roles and permissions.
+    Only the superuser can see all users and locations data while a users
+    can only see data from registered location within his/her group/system role.
+    If a user is not assigned to a group, he/she can only own data - 01/02/2021
+    """
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-
         # Get a query of groups the user belongs and flatten it to list object
         groups = list(request.user.groups.values_list('user', flat=True))
         user = request.user.id
         user_location = request.user.location.location_id
         db_locations = StgLocation.objects.all().order_by('location_id')
+        # Returns data for all the locations to the lowest location level
+        if request.user.is_superuser:
+            qs
+        # returns data for AFRO and member countries
+        elif user in groups and user_location==1:
+            qs_admin=db_locations.filter(
+                locationlevel__locationlevel_id__gte=1,
+                locationlevel__locationlevel_id__lte=2)
+        # return data based on the location of the user logged/request location
+        elif user in groups and user_location>1:
+            qs=qs.filter(location=user_location)
+        return qs
 
     def formfield_for_foreignkey(self, db_field, request =None, **kwargs):
         db_sevicedomains = StgServiceDomain.objects.all()
@@ -160,26 +253,35 @@ class FacilityServiceCapacityInline(admin.TabularInline):
 
         if db_field.name == "units":
             kwargs["queryset"]=db_provisionunits.exclude(domain__parent_id=5) # very sgood
-
-        if db_field.name == "user":
-                kwargs["queryset"] = CustomUser.objects.filter(
-                    email=request.user)
         return super().formfield_for_foreignkey(db_field, request,**kwargs)
 
     model = FacilityServiceProvision
     # formset = LimitModelFormset
-    extra = 3 # Used to control  number of empty rows displayed.
+    extra = 1 # Used to control  number of empty rows displayed.
 
     fields = ('facility','domain','units','available','functional',
-        'start_period','end_period',)
+            'date_assessed',)
 
 
 class FacilityServiceReadinessInline(admin.TabularInline):
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-
-        # import pdb; pdb.set_trace()
-        # print (qs)
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        user_location = request.user.location.location_id
+        db_locations = StgLocation.objects.all().order_by('location_id')
+        # Returns data for all the locations to the lowest location level
+        if request.user.is_superuser:
+            qs
+        # returns data for AFRO and member countries
+        elif user in groups and user_location<=2:
+            qs_admin=db_locations.filter(
+                locationlevel__locationlevel_id__gt=2,
+                locationlevel__locationlevel_id__lte=3)
+        # return data based on the location of the user logged/request location
+        elif user in groups and user_location>1:
+            qs=qs.filter(location=user_location)
+        return qs
 
         # Get a query of groups the user belongs and flatten it to list object
         groups = list(request.user.groups.values_list('user', flat=True))
@@ -202,17 +304,13 @@ class FacilityServiceReadinessInline(admin.TabularInline):
 
         if db_field.name == "units":
             kwargs["queryset"]=db_provisionunits.filter(domain__parent_id=5) #good!
-
-        if db_field.name == "user":
-                kwargs["queryset"] = CustomUser.objects.filter(
-                    email=request.user)
         return super().formfield_for_foreignkey(db_field, request,**kwargs)
 
     model = FacilityServiceReadiness
     # formset = LimitModelFormset
-    extra = 2 # Used to control  number of empty rows displayed.
+    extra = 1 # Used to control  number of empty rows displayed.
 
-    fields = ('facility','domain','units','available','require',)
+    fields = ('facility','domain','units','available','require','date_assessed',)
 
 
 @admin.register(StgServiceDomain)
@@ -223,13 +321,38 @@ class ServiceDomainAdmin(TranslatableAdmin,OverideExport):
         models.TextField: {'widget': Textarea(attrs={'rows':3, 'cols':100})},
     }
 
+    """
+    This method filters logged in users depending on group roles and permissions.
+    Only the superuser can see all users and locations data while a users
+    can only see data from registered location within his/her group/system role.
+    If a user is not assigned to a group, he/she can only own data - 01/02/2021
+    """
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        # Get a query of groups the user belongs and flatten it to list object
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        user_location = request.user.location.location_id
+        db_locations = StgLocation.objects.all().order_by('location_id')
+        # Returns data for all the locations to the lowest location level
+        if request.user.is_superuser:
+            qs
+        # returns data for AFRO and member countries
+        elif user in groups and user_location<=2:
+            qs_admin=db_locations.filter(
+                locationlevel__locationlevel_id__gt=2,
+                locationlevel__locationlevel_id__lte=3)
+        # return data based on the location of the user logged/request location
+        elif user in groups and user_location>1:
+            qs=qs.filter(location=user_location)
+        return qs
+
     fieldsets = (
         ('Service Domain Attributes', {
                 'fields':('name','shortname','description','parent','category',
                 'level') #afrocode may be null
             }),
         )
-
     list_display=['name','code','shortname','parent','category','level',]
     list_display_links =('code', 'name','shortname',)
     search_fields = ('translations__name','translations__shortname','code',) #display search field
@@ -268,7 +391,8 @@ class FacilityAdmin(TranslatableAdmin,ImportExportModelAdmin,OverideImport,
             qs
         # returns data for AFRO and member countries
         elif user in groups and user_location<=2:
-            qs_admin=db_locations.filter(locationlevel__locationlevel_id__gt=2,
+            qs_admin=db_locations.filter(
+                locationlevel__locationlevel_id__gt=2,
                 locationlevel__locationlevel_id__lte=3)
         # return data based on the location of the user logged/request location
         elif user in groups and user_location>1:
@@ -360,8 +484,17 @@ class FacilityAdmin(TranslatableAdmin,ImportExportModelAdmin,OverideImport,
 
 @admin.register(FacilityServiceAvailabilityProxy)
 class FacilityServiceAvailabilityAdmin(OverideExport):
-    inlines = [FacilityServiceAvailabilityInline] #try tabular form
-    #This method removes the add button on the admin interface
+
+    change_form_template = "admin/change_form_availability.html"
+    def response_change(self, request, obj):
+        if "_capacity-form" in request.POST:
+            pass # to be omplemented later to load service capacity form
+        if "_readiness-form" in request.POST:
+            pass #to be omplemented later to load servicereadiness form
+        return super().response_change(request, obj)
+
+
+    # This method removes the add button on the admin interface
     """
    Serge requested that a user does not see other users or groups data.
     This method filters logged in users depending on group roles and permissions.
@@ -370,17 +503,7 @@ class FacilityServiceAvailabilityAdmin(OverideExport):
     If a user is not assigned to a group, he/she can only own data - 01/02/2021
     """
     def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        # Test 3/3/2021
-        db_sevicedomains = StgServiceDomain.objects.all()
-        # db_sevicesubdomains=db_sevicedomains.exclude(parent_id__isnull=True)
-        db_sevicesubdomains=db_sevicedomains.exclude(
-            parent_id__isnull=True).filter(category=1)
-        db_seviceinterventions = StgFacilityServiceIntervention.objects.all()
-
-        db_seviceareas = StgFacilityServiceAreas.objects.all()
-
-        # Get a query of groups the user belongs and flatten it to list object
+        qs = super().get_queryset(request)        # Get a query of groups the user belongs and flatten it to list object
         groups = list(request.user.groups.values_list('user', flat=True))
         user = request.user.id
         user_location = request.user.location.location_id
@@ -391,7 +514,203 @@ class FacilityServiceAvailabilityAdmin(OverideExport):
             return qs
         # returns data for AFRO and member countries
         elif user in groups and user_location==1:
-            qs_admin=db_locations.filter(locationlevel__locationlevel_id__gte=1,
+            qs_admin=db_locations.filter(
+                locationlevel__locationlevel_id__gte=1,
+                locationlevel__locationlevel_id__lte=2)
+        # return data based on the location of the user logged/request location
+        elif user in groups and user_location>1:
+            qs=qs.filter(location=user_location)
+        else: # return own data if not member of a group
+            qs=qs.filter(user=request.user).distinct()
+        return qs
+
+    """
+    Serge requested that the form for data input be restricted to user's country.
+    Thus, this function is for filtering location to display country level.
+    The location is used to filter the dropdownlist based on the request
+    object's USER, If the user has superuser privileges or is a member of
+    AFRO-DataAdmins, he/she can enter data for all the AFRO member countries
+    otherwise, can only enter data for his/her country.=== modified 02/02/2021
+    """
+    def formfield_for_foreignkey(self, db_field, request =None, **kwargs):
+        db_sevicedomains = StgServiceDomain.objects.all()
+        db_sevicesubdomains=db_sevicedomains.exclude(
+            parent_id__isnull=True).filter(category=1)
+
+
+        if db_field.name == "domain":
+            kwargs["queryset"]=db_sevicesubdomains
+
+        if db_field.name == "user":
+                kwargs["queryset"] = CustomUser.objects.filter(
+                    email=request.user)
+        return super().formfield_for_foreignkey(db_field, request,**kwargs)
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    #This function limits the import format to CSV, XML and XLSX
+    def get_import_formats(self):
+        """
+        This function returns available export formats.
+        """
+        formats = (
+              base_formats.CSV,
+              base_formats.XLS,
+              base_formats.XLSX,
+        )
+        return [f for f in formats if f().can_import()]
+
+    # This function limits the export format to CSV, XML and XLSX
+    def get_export_formats(self):
+        """
+        This function returns available export formats.
+        """
+        formats = (
+              base_formats.CSV,
+              base_formats.XLS,
+              base_formats.XLSX,
+        )
+        return [f for f in formats if f().can_export()]
+
+    fieldsets = (
+        ('FACILITY DETAILS', {
+                'fields':('name','type','location','admin_location','owner',) #afrocode may be null
+            }),
+        )
+    inlines = [FacilityServiceAvailabilityInline] # Displays tabular subform
+    readonly_fields = ('name','type','location','admin_location','owner','user')
+    list_display=['name','type','location','admin_location',]
+
+@admin.register(FacilityServiceProvisionProxy)
+class FacilityServiceProvisionAdmin(OverideExport):
+
+    change_form_template = "admin/change_form_capacity.html"
+    def response_change(self, request, obj):
+        if "_capacity-availability" in request.POST:
+            pass # to be omplemented later to load service capacity form
+        if "_readiness-form" in request.POST:
+            pass #to be omplemented later to load servicereadiness form
+        return super().response_change(request, obj)
+
+    #This method removes the add button on the admin interface
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def get_import_formats(self):  #This method limits import to CSV, XML and XLSX
+        """
+        This function returns available export formats.
+        """
+        formats = (
+              base_formats.CSV,
+              base_formats.XLS,
+              base_formats.XLSX,
+        )
+        return [f for f in formats if f().can_import()]
+
+    def get_export_formats(self): #This function returns available export formats.
+
+        formats = (
+              base_formats.CSV,
+              base_formats.XLS,
+              base_formats.XLSX,
+        )
+        return [f for f in formats if f().can_export()]
+
+    # This method removes the add button on the admin interface
+    """
+   Serge requested that a user does not see other users or groups data.
+    This method filters logged in users depending on group roles and permissions.
+    Only the superuser can see all users and locations data while a users
+    can only see data from registered location within his/her group/system role.
+    If a user is not assigned to a group, he/she can only own data - 01/02/2021
+    """
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        user_location = request.user.location.location_id
+        db_locations = StgLocation.objects.all().order_by('location_id')
+
+        # Returns data for all the locations to the lowest location level
+        if request.user.is_superuser:
+            return qs
+        # returns data for AFRO and member countries
+        elif user in groups and user_location==1:
+            qs_admin=db_locations.filter(
+                locationlevel__locationlevel_id__gte=1,
+                locationlevel__locationlevel_id__lte=2)
+        # return data based on the location of the user logged/request location
+        elif user in groups and user_location>1:
+            qs=qs.filter(location=user_location)
+        else: # return own data if not member of a group
+            qs=qs.filter(user=request.user).distinct()
+        return qs
+
+    """
+    Serge requested that the form for data input be restricted to user's country.
+    Thus, this function is for filtering location to display country level.
+    The location is used to filter the dropdownlist based on the request
+    object's USER, If the user has superuser privileges or is a member of
+    AFRO-DataAdmins, he/she can enter data for all the AFRO member countries
+    otherwise, can only enter data for his/her country.=== modified 02/02/2021
+    """
+    def formfield_for_foreignkey(self, db_field, request =None, **kwargs):
+        db_sevicedomains = StgServiceDomain.objects.all()
+        db_sevicesubdomains=db_sevicedomains.exclude(
+            parent_id__isnull=True).filter(category=1)
+
+        if db_field.name == "domain":
+            kwargs["queryset"]=db_sevicesubdomains
+
+        if db_field.name == "user":
+                kwargs["queryset"] = CustomUser.objects.filter(
+                    email=request.user)
+        return super().formfield_for_foreignkey(db_field, request,**kwargs)
+
+    fieldsets = (
+        ('FACILITY DETAILS', {
+                'fields':('name','type','location','admin_location','owner',) #afrocode may be null
+            }),
+        )
+    inlines = [FacilityServiceCapacityInline]
+    readonly_fields = ('name','type','location','admin_location','owner','user')
+    list_display=['name','type','location','admin_location',]
+
+
+@admin.register(FacilityServiceReadinesProxy)
+class FacilityServiceReadinessAdmin(OverideExport):
+    # This method adds custom change buttons
+    change_form_template = "admin/change_form_readiness.html"
+    def response_change(self, request, obj):
+        if "_capacity-availability" in request.POST:
+            pass # to be omplemented later to load service capacity form
+        if "_readiness-form" in request.POST:
+            pass #to be omplemented later to load servicereadiness form
+        return super().response_change(request, obj)
+    # This method removes the add button on the admin interface
+
+    """
+   Serge requested that a user does not see other users or groups data.
+    This method filters logged in users depending on group roles and permissions.
+    Only the superuser can see all users and locations data while a users
+    can only see data from registered location within his/her group/system role.
+    If a user is not assigned to a group, he/she can only own data - 01/02/2021
+    """
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        user_location = request.user.location.location_id
+        db_locations = StgLocation.objects.all().order_by('location_id')
+
+        # Returns data for all the locations to the lowest location level
+        if request.user.is_superuser:
+            return qs
+        # returns data for AFRO and member countries
+        elif user in groups and user_location==1:
+            qs_admin=db_locations.filter(
+                locationlevel__locationlevel_id__gte=1,
                 locationlevel__locationlevel_id__lte=2)
         # return data based on the location of the user logged/request location
         elif user in groups and user_location>1:
@@ -422,13 +741,11 @@ class FacilityServiceAvailabilityAdmin(OverideExport):
                     email=request.user)
         return super().formfield_for_foreignkey(db_field, request,**kwargs)
 
+    #This method removes the add button on the admin interface
     def has_add_permission(self, request, obj=None):
         return False
 
-    def get_import_formats(self):  #This function limits the export format to only 3 types -CSV, XML and XLSX
-        """
-        This function returns available export formats.
-        """
+    def get_import_formats(self):  #This method limits import to CSV, XML and XLSX
         formats = (
               base_formats.CSV,
               base_formats.XLS,
@@ -436,43 +753,20 @@ class FacilityServiceAvailabilityAdmin(OverideExport):
         )
         return [f for f in formats if f().can_import()]
 
-    def get_export_formats(self):
-        """
-        This function returns available export formats.
-        """
+    def get_export_formats(self): #This function returns available export formats.
         formats = (
               base_formats.CSV,
               base_formats.XLS,
               base_formats.XLSX,
         )
         return [f for f in formats if f().can_export()]
-    fields = ('name','type','location','admin_location','owner','user',)
-    readonly_fields = ('name','type','location','admin_location','owner','user')
-    list_display=['name','type','location','admin_location',]
 
-@admin.register(FacilityServiceProvisionProxy)
-class FacilityServiceProvisionAdmin(OverideExport):
-    # def get_queryset(self, request):
-    #     qs = super().get_queryset(request)
-    provision=StgServiceDomain.objects.filter(category=2).filter(parent__isnull=False)
-
-
-    # import pdb; pdb.set_trace()
-
-# StgFacilityServiceMeasureUnits.objects.filter(domain__category=timezone.now()).select_related('blog'):
-
-    inlines = [FacilityServiceCapacityInline]
-
-    fields = ('name','type','location','admin_location','owner','user',)
-    readonly_fields = ('name','type','location','admin_location','owner','user')
-    list_display=['name','type','location','admin_location',]
-
-
-@admin.register(FacilityServiceReadinesProxy)
-class FacilityServiceReadinessAdmin(OverideExport):
+    fieldsets = (
+        ('FACILITY DETAILS', {
+                'fields':('name','type','location','admin_location','owner',) #afrocode may be null
+            }),
+        )
     inlines = [FacilityServiceReadinessInline]
-
-    fields = ('name','type','location','admin_location','owner','user')
     readonly_fields = ('name','type','location','admin_location','owner','user',)
     list_display=['name','type','location','admin_location',]
 
@@ -484,6 +778,39 @@ class FacilityServiceProvisionUnitsAdmin (TranslatableAdmin):
         models.CharField: {'widget': TextInput(attrs={'size':'100'})},
         models.TextField: {'widget': Textarea(attrs={'rows':3, 'cols':100})},
     }
+
+    # This method removes the add button on the admin interface
+    """
+   Serge requested that a user does not see other users or groups data.
+    This method filters logged in users depending on group roles and permissions.
+    Only the superuser can see all users and locations data while a users
+    can only see data from registered location within his/her group/system role.
+    If a user is not assigned to a group, he/she can only own data - 01/02/2021
+    """
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        user_location = request.user.location.location_id
+        db_locations = StgLocation.objects.all().order_by('location_id')
+
+        # Returns data for all the locations to the lowest location level
+        if request.user.is_superuser:
+            return qs
+        # returns data for AFRO and member countries
+        elif user in groups and user_location==1:
+            qs_admin=db_locations.filter(
+                locationlevel__locationlevel_id__gte=1,
+                locationlevel__locationlevel_id__lte=2)
+        # return data based on the location of the user logged/request location
+        elif user in groups and user_location>1:
+            qs=qs.filter(location=user_location)
+        return qs
+    fieldsets = (
+        ('Unit of Service provision', {
+                'fields':('name','shortname','description','domain',) #afrocode may be null
+            }),
+        )
     list_display=['name','code','shortname','domain','description']
     list_display_links =('code', 'name',)
     search_fields = ('code','translations__name',) #display search field
@@ -494,9 +821,98 @@ class FacilityServiceProvisionUnitsAdmin (TranslatableAdmin):
 
 @admin.register(StgFacilityServiceIntervention)
 class FacilityServiceInterventionAdmin(TranslatableAdmin,OverideExport):
-    pass
+    from django.db import models
+    formfield_overrides = {
+        models.CharField: {'widget': TextInput(attrs={'size':'100'})},
+        models.TextField: {'widget': Textarea(attrs={'rows':3, 'cols':100})},
+    }
+    # This method removes the add button on the admin interface
+    """
+   Serge requested that a user does not see other users or groups data.
+    This method filters logged in users depending on group roles and permissions.
+    Only the superuser can see all users and locations data while a users
+    can only see data from registered location within his/her group/system role.
+    If a user is not assigned to a group, he/she can only own data - 01/02/2021
+    """
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        user_location = request.user.location.location_id
+        db_locations = StgLocation.objects.all().order_by('location_id')
+
+        # Returns data for all the locations to the lowest location level
+        if request.user.is_superuser:
+            return qs
+        # returns data for AFRO and member countries
+        elif user in groups and user_location==1:
+            qs_admin=db_locations.filter(
+                locationlevel__locationlevel_id__gte=1,
+                locationlevel__locationlevel_id__lte=2)
+        # return data based on the location of the user logged/request location
+        elif user in groups and user_location>1:
+            qs=qs.filter(location=user_location)
+        return qs
+    fieldsets = (
+        ('Service Interventions Details', {
+                'fields':('name','shortname','description','domain',) #afrocode may be null
+            }),
+        )
+    list_display=['name','code','shortname','description','domain',]
+    list_display_links =('code', 'name','shortname',)
+    search_fields = ('translations__name','translations__shortname','code',) #display search field
+    exclude = ('date_created','date_lastupdated','code',)
+    list_per_page = 30 #limit records displayed on admin site to 15
+    list_filter = (
+        ('domain',RelatedOnlyDropdownFilter),
+    )
 
 
 @admin.register(StgFacilityServiceAreas)
 class FacilityServiceAreasAdmin(TranslatableAdmin,OverideExport):
-    pass
+    from django.db import models
+    formfield_overrides = {
+        models.CharField: {'widget': TextInput(attrs={'size':'100'})},
+        models.TextField: {'widget': Textarea(attrs={'rows':3, 'cols':100})},
+    }
+    # This method removes the add button on the admin interface
+    """
+   Serge requested that a user does not see other users or groups data.
+    This method filters logged in users depending on group roles and permissions.
+    Only the superuser can see all users and locations data while a users
+    can only see data from registered location within his/her group/system role.
+    If a user is not assigned to a group, he/she can only own data - 01/02/2021
+    """
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        groups = list(request.user.groups.values_list('user', flat=True))
+        user = request.user.id
+        user_location = request.user.location.location_id
+        db_locations = StgLocation.objects.all().order_by('location_id')
+
+        # Returns data for all the locations to the lowest location level
+        if request.user.is_superuser:
+            return qs
+        # returns data for AFRO and member countries
+        elif user in groups and user_location==1:
+            qs_admin=db_locations.filter(
+                locationlevel__locationlevel_id__gte=1,
+                locationlevel__locationlevel_id__lte=2)
+        # return data based on the location of the user logged/request location
+        elif user in groups and user_location>1:
+            qs=qs.filter(location=user_location)
+        return qs
+    fieldsets = (
+        ('Service Domain Areas', {
+                'fields':('name','shortname','description','intervention',) #afrocode may be null
+            }),
+        )
+
+    list_display=['name','code','shortname','description','intervention',]
+    list_display_links =('code', 'name','shortname',)
+    search_fields = ('translations__name','translations__shortname','code',) #display search field
+    exclude = ('date_created','date_lastupdated','code',)
+    list_per_page = 30 #limit records displayed on admin site to 15
+    list_filter = (
+        ('intervention',RelatedOnlyDropdownFilter),
+    )

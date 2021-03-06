@@ -51,7 +51,13 @@ INSTALLED_APPS = [
     'rest_framework', # register Django
     'rest_framework_swagger',
     'django_admin_listfilter_dropdown',
+    'bootstrap_datepicker_plus',
 ]
+
+# Use BOOTSTRAP3 if you are using Bootstrap 3
+BOOTSTRAP3 = {
+    'include_jquery': True,
+}
 
 DATA_WIZARD = {
     'BACKEND': 'data_wizard.backends.threading',
