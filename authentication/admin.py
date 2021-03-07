@@ -76,8 +76,9 @@ class UserAdmin (UserAdmin):
         ),
     )
 
-    list_display = ['first_name','last_name','username','email','gender',
-        'location','last_login']
+    list_display = ('first_name','last_name','username','email','gender',
+        'location','last_login')
+    list_select_related = ('location',)
     list_display_links = ['first_name','last_name','username','email']
 
 
@@ -125,7 +126,8 @@ class GroupAdmin(BaseGroupAdmin):
                 'location_id')
         return super().formfield_for_foreignkey(db_field, request,**kwargs)
 
-    list_display = ['name','roles_manager','location',]
+    list_display = ('name','roles_manager','location',)
+    list_select_related = ('location',)
 
 
 # This is the admin interface that allows the super admin to track user activities!

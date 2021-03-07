@@ -208,7 +208,8 @@ class TrainingInsitutionAdmin(TranslatableAdmin,OverideExport):
             qs
         # returns data for AFRO and member countries
         elif user in groups and user_location==1:
-            qs_admin=db_locations.filter(locationlevel__locationlevel_id__gte=1,
+            qs_admin=db_locations.filter(
+                locationlevel__locationlevel_id__gte=1,
                 locationlevel__locationlevel_id__lte=2)
         # return data based on the location of the user logged/request location
         elif user in groups and user_location>1:

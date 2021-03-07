@@ -73,7 +73,6 @@ class StgFacilityOwnership(TranslatableModel):
     date_lastupdated = models.DateTimeField(_('Date Modified'),blank=True,
         null=True, auto_now=True)
 
-
     class Meta:
         managed = True
         db_table = 'stg_facility_owner'
@@ -124,7 +123,6 @@ class StgServiceDomain(TranslatableModel):
         auto_now_add=True)
     date_lastupdated = models.DateTimeField(_('Date Modified'),blank=True,
         null=True, auto_now=True)
-
 
     class Meta:
         managed = True # must be true to create the model table in mysql
@@ -273,7 +271,6 @@ class StgFacilityServiceMeasureUnits(TranslatableModel):
     date_lastupdated = models.DateTimeField(_('Date Modified'),blank=True,
         null=True, auto_now=True)
 
-
     class Meta:
         managed = True
         db_table = 'stg_facility_service_units'
@@ -293,7 +290,6 @@ class StgFacilityServiceMeasureUnits(TranslatableModel):
 
     def save(self, *args, **kwargs):
         super(StgFacilityServiceMeasureUnits, self).save(*args, **kwargs)
-
 
 
 # New model to take care of service availability interventions
@@ -361,6 +357,7 @@ class StgFacilityServiceAreas(TranslatableModel):
     def __str__(self):
         return self.name #display the data element name
 
+
 class FacilityServiceAvailability(models.Model):
     availability_id = models.AutoField(primary_key=True)
     uuid = uuid = models.CharField(_('Unique ID'),unique=True,max_length=36,
@@ -393,7 +390,6 @@ class FacilityServiceAvailability(models.Model):
         auto_now_add=True)
     date_lastupdated = models.DateTimeField(_('Date Modified'),blank=True,
         null=True, auto_now=True)
-
 
     class Meta:
         managed = True # must be true to create the model table in mysql
@@ -435,7 +431,6 @@ class FacilityServiceProvision(models.Model):
         auto_now_add=True)
     date_lastupdated = models.DateTimeField(_('Date Modified'),blank=True,
         null=True, auto_now=True)
-
 
     class Meta:
         managed = True # must be true to create the model table in mysql

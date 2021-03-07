@@ -285,7 +285,6 @@ class FacilityServiceReadinessInline(admin.TabularInline):
         db_provisionunits = StgFacilityServiceMeasureUnits.objects.select_related(
             'domain')
 
-        # import pdb; pdb.set_trace()
 
         if db_field.name == "domain":
             kwargs["queryset"]=db_sevicesubdomains
@@ -460,13 +459,17 @@ class FacilityAdmin(TranslatableAdmin,ImportExportModelAdmin,OverideImport,
     # make a 1 query join instead of multiple individual queries
     list_select_related = ('type','owner','location',)
     list_display_links = ['code','name',]
-    search_fields = ('name','type__name','location__name',) #display search field
-    list_per_page = 30 #limit records displayed on admin site to 30
+    search_fields = ('name','type__translations__name','status','shortname',
+        'code',   'code','location__location__translations__name',
+        'owner__translations__name')
+    list_per_page = 50 #limit records displayed on admin site to 50
     exclude = ('date_created','date_lastupdated','code',)
     readonly_fields = ('phone_code',)
     list_filter = (
         ('location',RelatedOnlyDropdownFilter),
         ('type',RelatedOnlyDropdownFilter),
+        ('owner',RelatedOnlyDropdownFilter),
+        ('status',DropdownFilter),
     )
 
 
@@ -525,7 +528,6 @@ class FacilityServiceAvailabilityAdmin(OverideExport):
         db_sevicesubdomains=db_sevicedomains.exclude(
             parent_id__isnull=True).filter(category=1)
 
-
         if db_field.name == "domain":
             kwargs["queryset"]=db_sevicesubdomains
 
@@ -569,12 +571,21 @@ class FacilityServiceAvailabilityAdmin(OverideExport):
     inlines = [FacilityServiceAvailabilityInline] # Displays tabular subform
     list_display=('name','type','location','admin_location','owner',)
     list_select_related = ('type','owner','location','owner',)
+    search_fields = ('name','type__translations__name','status','shortname',
+    'code','location__location__translations__name','owner__translations__name')
     readonly_fields = ('name','type','location','admin_location','owner','user')
+    list_per_page = 50 #limit records displayed on admin site to 50
+    list_filter = (
+        ('location',RelatedOnlyDropdownFilter),
+        ('type',RelatedOnlyDropdownFilter),
+        ('owner',RelatedOnlyDropdownFilter),
+        ('status',DropdownFilter),
+    )
+
 
 
 @admin.register(FacilityServiceProvisionProxy)
 class FacilityServiceProvisionAdmin(OverideExport):
-
     change_form_template = "admin/change_form_capacity.html"
     def response_change(self, request, obj):
         if "_capacity-availability" in request.POST:
@@ -667,6 +678,16 @@ class FacilityServiceProvisionAdmin(OverideExport):
     list_display=('name','type','location','admin_location','owner',)
     list_select_related = ('type','owner','location','owner',)
     readonly_fields = ('name','type','location','admin_location','owner')
+    search_fields = ('name','type__translations__name','status','shortname',
+        'code',   'code','location__location__translations__name',
+        'owner__translations__name')
+    list_per_page = 50 #limit records displayed on admin site to 50
+    list_filter = (
+        ('location',RelatedOnlyDropdownFilter),
+        ('type',RelatedOnlyDropdownFilter),
+        ('owner',RelatedOnlyDropdownFilter),
+        ('status',DropdownFilter),
+    )
 
 
 
@@ -761,7 +782,18 @@ class FacilityServiceReadinessAdmin(OverideExport):
     inlines = [FacilityServiceReadinessInline]
     list_display=('name','type','location','admin_location','owner',)
     list_select_related = ('type','owner','location','owner',)
+    search_fields = ('name','type__translations__name','status','shortname',
+        'code',   'code','location__location__translations__name',
+        'owner__translations__name')
     readonly_fields = ('name','type','location','admin_location','owner','user',)
+    list_per_page = 50 #limit records displayed on admin site to 50
+    list_filter = (
+        ('location',RelatedOnlyDropdownFilter),
+        ('type',RelatedOnlyDropdownFilter),
+        ('owner',RelatedOnlyDropdownFilter),
+        ('status',DropdownFilter),
+    )
+
 
 
 @admin.register(StgFacilityServiceMeasureUnits)
@@ -808,8 +840,11 @@ class FacilityServiceProvisionUnitsAdmin (TranslatableAdmin):
     list_select_related = ('domain',)
     list_display_links =('code', 'name',)
     search_fields = ('code','translations__name',) #display search field
-    list_per_page = 30 #limit records displayed on admin site to 15
+    list_per_page = 50 #limit records displayed on admin site to 50
     exclude = ('date_created','date_lastupdated','code',)
+    list_filter = (
+        ('domain',RelatedOnlyDropdownFilter),
+    )
 
 
 
@@ -903,7 +938,8 @@ class FacilityServiceAreasAdmin(TranslatableAdmin,OverideExport):
             }),
         )
 
-    list_display=['name','code','shortname','description','intervention',]
+    list_display=('name','code','shortname','description','intervention',)
+    list_select_related = ('intervention',)
     list_display_links =('code', 'name','shortname',)
     search_fields = ('translations__name','translations__shortname','code',) #display search field
     exclude = ('date_created','date_lastupdated','code',)
