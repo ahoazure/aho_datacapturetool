@@ -5,7 +5,7 @@ whitenoise==4.1
 tablib==0.14.0
 django-admin-menu==1.2.1
 django-import-export
-djangorestframework==3.9.2
+djangorestframework==3.11.2
 djangorestframework-simplejwt==4.4.0
 git+git://github.com/ahoazure/django-admin-menu.git
 git+git://github.com/ahoazure/django-data-wizard.git
